@@ -1,0 +1,690 @@
+/* React Flow Org Chart Container */
+.org-chart-flow {
+  width: 100vw; /* Full viewport width */
+  height: calc(100vh - 80px); /* Full height minus header */
+  background: var(--bg-primary);
+  position: relative;
+  overflow: visible !important;
+  margin: 0;
+  padding: 0;
+  isolation: isolate; /* Prevent external layout interference */
+  contain: layout style; /* Optimize rendering */
+}
+
+/* Allow React Flow to expand freely */
+.org-chart-flow * {
+  box-sizing: border-box;
+}
+
+.org-chart-flow .react-flow__viewport {
+  overflow: visible !important;
+}
+
+.org-chart-flow .react-flow__pane {
+  overflow: visible !important;
+  min-width: 2000px;
+  min-height: 2000px;
+}
+
+/* Ensure React Flow edges are visible */
+.org-chart-flow .react-flow__edges {
+  z-index: 10 !important;
+}
+
+.org-chart-flow .react-flow__edge {
+  z-index: 10 !important;
+}
+
+/* Edge styling is now controlled by JavaScript through designSettings */
+/* Removed hardcoded red color rules that were preventing dynamic color updates */
+
+/* Legacy org chart (keeping for compatibility) */
+.org-chart {
+  width: 100%;
+  overflow-x: auto;
+  padding: 1rem 0;
+}
+
+.chart-container {
+  display: flex;
+  justify-content: center;
+  min-width: max-content;
+  padding: 2rem 0;
+}
+
+.org-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  margin: 0 1rem;
+}
+
+/* React Flow Employee Card */
+.employee-card-flow {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 6px -1px var(--shadow-color);
+  border: 2px solid var(--border-color);
+  min-width: 250px;
+  max-width: 280px;
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: pointer;
+}
+
+.employee-card-flow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px var(--shadow-color);
+  border-color: #667eea;
+}
+
+/* Legacy employee card (keeping for compatibility) */
+.employee-card {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px var(--shadow-color);
+  border: 2px solid var(--border-color);
+  min-width: 280px;
+  max-width: 320px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.employee-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px var(--shadow-color);
+  border-color: #667eea;
+}
+
+.employee-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  color: white;
+}
+
+.employee-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.employee-info {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.employee-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+}
+
+.employee-position {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.employee-department {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.employee-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.contact-item svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* Custom Fields */
+.custom-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.custom-field-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.custom-field-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+  min-width: 60px;
+}
+
+.custom-field-value {
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+.employee-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+}
+
+.view-btn {
+  background: var(--success-color);
+}
+
+.view-btn:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
+
+.edit-btn {
+  background: var(--accent-color);
+}
+
+.edit-btn:hover {
+  background: var(--button-hover);
+  transform: scale(1.05);
+}
+
+.delete-btn {
+  background: var(--danger-color);
+}
+
+.delete-btn:hover {
+  background: #b91c1c;
+  transform: scale(1.05);
+}
+
+/* Hierarchy connectors */
+.children-container {
+  position: relative;
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.connector-line {
+  width: 2px;
+  height: 2rem;
+  background: linear-gradient(to bottom, var(--border-color), var(--text-secondary));
+  margin-bottom: 1rem;
+}
+
+.children {
+  display: flex;
+  gap: 2rem;
+  position: relative;
+}
+
+.children::before {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2rem);
+  height: 2px;
+  background: linear-gradient(to right, var(--border-color), var(--text-secondary));
+}
+
+/* Edge Type Styles */
+
+/* Straight Edges (Default) */
+.edge-type-straight .connector-line {
+  width: 3px;
+  height: 2rem;
+  background: linear-gradient(to bottom, var(--border-color), var(--text-secondary));
+}
+
+.edge-type-straight .children::before {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2rem);
+  height: 3px;
+  background: linear-gradient(to right, var(--border-color), var(--text-secondary));
+}
+
+/* Curved Edges */
+.edge-type-curved .connector-line {
+  width: 4px;
+  height: 2rem;
+  background: linear-gradient(to bottom, var(--border-color), var(--text-secondary));
+  border-radius: 0 0 50% 50%;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+}
+
+.edge-type-curved .children::before {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2rem);
+  height: 4px;
+  background: linear-gradient(to right, var(--border-color), var(--text-secondary));
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Bezier Curves */
+.edge-type-bezier .connector-line {
+  width: 4px;
+  height: 2rem;
+  background: linear-gradient(to bottom, var(--border-color), var(--text-secondary));
+  position: relative;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.edge-type-bezier .connector-line::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2rem;
+  height: 4px;
+  background: linear-gradient(to right, var(--border-color), var(--text-secondary));
+  border-radius: 0 0 0 50%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.edge-type-bezier .children::before {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2rem);
+  height: 4px;
+  background: linear-gradient(to right, var(--border-color), var(--text-secondary));
+  border-radius: 0 0 50% 50%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.edge-type-bezier .children::after {
+  content: '';
+  position: absolute;
+  top: -1rem;
+  right: 50%;
+  transform: translateX(50%);
+  width: 2rem;
+  height: 4px;
+  background: linear-gradient(to left, var(--border-color), var(--text-secondary));
+  border-radius: 0 0 50% 0;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Enhanced connector styles for better visual appeal */
+.edge-type-curved .connector-line,
+.edge-type-curved .children::before {
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+}
+
+.edge-type-bezier .connector-line,
+.edge-type-bezier .children::before,
+.edge-type-bezier .children::after {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .edge-type-curved .connector-line,
+[data-theme="dark"] .edge-type-curved .children::before {
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .edge-type-bezier .connector-line,
+[data-theme="dark"] .edge-type-bezier .children::before,
+[data-theme="dark"] .edge-type-bezier .children::after {
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+/* React Flow Node Styling */
+.react-flow-node {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  cursor: grab !important;
+}
+
+.react-flow-node:hover {
+  cursor: grab !important;
+}
+
+.react-flow-node.dragging {
+  cursor: grabbing !important;
+  z-index: 1000 !important;
+}
+
+.react-flow-node.selected {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+/* Ensure node content is properly styled for dragging */
+.react-flow-node .react-flow__node-content {
+  cursor: grab !important;
+}
+
+.react-flow-node .react-flow__node-content:hover {
+  cursor: grab !important;
+}
+
+.react-flow-node.dragging .react-flow__node-content {
+  cursor: grabbing !important;
+}
+
+/* React Flow Level-specific styling */
+.react-flow-node.level-0 .employee-card-flow {
+  border-color: var(--success-color);
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+}
+
+.react-flow-node.level-1 .employee-card-flow {
+  border-color: var(--accent-color);
+  background: linear-gradient(135deg, #eff6ff 0%, #f1f5f9 100%);
+}
+
+.react-flow-node.level-2 .employee-card-flow {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.react-flow-node.level-3 .employee-card-flow {
+  border-color: var(--warning-color);
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+/* Dark theme adjustments for React Flow */
+[data-theme="dark"] .react-flow-node.level-0 .employee-card-flow {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+}
+
+[data-theme="dark"] .react-flow-node.level-1 .employee-card-flow {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+}
+
+[data-theme="dark"] .react-flow-node.level-2 .employee-card-flow {
+  background: linear-gradient(135deg, #3730a3 0%, #4338ca 100%);
+}
+
+[data-theme="dark"] .react-flow-node.level-3 .employee-card-flow {
+  background: linear-gradient(135deg, #92400e 0%, #a16207 100%);
+}
+
+/* React Flow Controls Styling */
+.react-flow__controls {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px var(--shadow-color);
+}
+
+.react-flow__controls-button {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--bg-primary);
+  color: var(--accent-color);
+}
+
+/* React Flow Background */
+.react-flow__background {
+  background: var(--bg-primary);
+}
+
+/* Level-specific styling - Professional Corporate (Legacy) */
+.level-0 .employee-card {
+  border-color: var(--success-color);
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+}
+
+[data-theme="dark"] .level-0 .employee-card {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+}
+
+.level-0 .employee-avatar {
+  background: linear-gradient(135deg, var(--success-color) 0%, #047857 100%);
+}
+
+.level-1 .employee-card {
+  border-color: var(--accent-color);
+  background: linear-gradient(135deg, #eff6ff 0%, #f1f5f9 100%);
+}
+
+[data-theme="dark"] .level-1 .employee-card {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+}
+
+.level-1 .employee-avatar {
+  background: linear-gradient(135deg, var(--accent-color) 0%, #2563eb 100%);
+}
+
+.level-2 .employee-card {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+[data-theme="dark"] .level-2 .employee-card {
+  background: linear-gradient(135deg, #3730a3 0%, #4338ca 100%);
+}
+
+.level-2 .employee-avatar {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.level-3 .employee-card {
+  border-color: var(--warning-color);
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+[data-theme="dark"] .level-3 .employee-card {
+  background: linear-gradient(135deg, #92400e 0%, #a16207 100%);
+}
+
+.level-3 .employee-avatar {
+  background: linear-gradient(135deg, var(--warning-color) 0%, #d97706 100%);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .chart-container {
+    padding: 1rem 0;
+  }
+
+  .org-node {
+    margin: 0 0.5rem;
+  }
+
+  .employee-card {
+    min-width: 240px;
+    max-width: 280px;
+    padding: 1rem;
+  }
+
+  .children {
+    gap: 1rem;
+  }
+
+  .children::before {
+    width: calc(100% - 1rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .org-chart {
+    padding: 0.5rem 0;
+  }
+
+  .employee-card {
+    min-width: 200px;
+    max-width: 240px;
+    padding: 0.75rem;
+  }
+
+  .employee-name {
+    font-size: 1rem;
+  }
+
+  .employee-position {
+    font-size: 0.8rem;
+  }
+
+  .employee-department {
+    font-size: 0.7rem;
+  }
+
+  .contact-item {
+    font-size: 0.7rem;
+  }
+
+  .children {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .children::before {
+    display: none;
+  }
+
+  .connector-line {
+    height: 1rem;
+  }
+}
+
+/* Fit View and Organize Controls */
+.org-chart-controls {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.control-btn:hover {
+  background: var(--bg-primary);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.fit-organize-btn {
+  background: linear-gradient(135deg, var(--accent-color) 0%, #4f46e5 100%);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.fit-organize-btn:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, var(--accent-color) 100%);
+  border-color: #4f46e5;
+  color: white;
+}
+
+.control-btn svg {
+  flex-shrink: 0;
+}
+
+.control-btn span {
+  white-space: nowrap;
+}
+
+/* Responsive controls */
+@media (max-width: 768px) {
+  .org-chart-controls {
+    top: 10px;
+    right: 10px;
+  }
+
+  .control-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .control-btn span {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .org-chart-controls {
+    top: 5px;
+    right: 5px;
+  }
+
+  .control-btn {
+    padding: 0.5rem;
+    min-width: 40px;
+    justify-content: center;
+  }
+}

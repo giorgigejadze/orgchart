@@ -1,0 +1,8 @@
+Name,Position,Department,Email,Phone,Manager
+John Smith,CEO,Executive,john.smith@company.com,+1-555-0101,
+Sarah Johnson,CTO,Technology,sarah.johnson@company.com,+1-555-0102,John Smith
+Mike Wilson,VP Engineering,Engineering,mike.wilson@company.com,+1-555-0103,Sarah Johnson
+Lisa Brown,VP Sales,Sales,lisa.brown@company.com,+1-555-0104,John Smith
+David Lee,VP Marketing,Marketing,david.lee@company.com,+1-555-0105,John Smith
+Anna Garcia,Senior Engineer,Engineering,anna.garcia@company.com,+1-555-0106,Mike Wilson
+Tom Davis,Product Manager,Product,tom.davis@company.com,+1-555-0107,Sarah Johnson
