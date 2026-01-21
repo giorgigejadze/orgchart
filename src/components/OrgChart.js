@@ -386,6 +386,8 @@ const OrgChart = ({
   onEditEmployee,
   onDeleteEmployee,
   onViewEmployee,
+  isStandaloneMode = false,
+  mondayDataLoaded = false,
   designSettings = {
     cardStyle: 'rounded',
     avatarSize: 'medium',
@@ -503,12 +505,22 @@ const OrgChart = ({
       const currentFlowNodeIds = new Set(flowNodes.map(fn => fn.id));
       const newEmployeeIds = nodes.filter(n => !currentFlowNodeIds.has(String(n.id))).map(n => n.id);
 
+      // Check if any node data has changed
+      let hasDataChanges = false;
+
       // Process all employees
       nodes.forEach(originalNode => {
         const existingFlowNode = flowNodes.find(fn => fn.id === String(originalNode.id));
         const savedPosition = nodePositionsRef.current.get(String(originalNode.id));
 
         if (existingFlowNode) {
+          // Check if employee data has changed by comparing JSON strings
+          const existingDataStr = JSON.stringify(existingFlowNode.data);
+          const newDataStr = JSON.stringify(originalNode.data);
+          if (existingDataStr !== newDataStr) {
+            hasDataChanges = true;
+          }
+
           // Update existing node while preserving position
           const position = savedPosition || existingFlowNode.position;
           updatedNodes.push({
@@ -536,8 +548,8 @@ const OrgChart = ({
         }
       });
 
-      // Only update if there are actual changes
-      if (updatedNodes.length !== flowNodes.length || newEmployeeIds.length > 0) {
+      // Update if there are structural changes (additions/removals) or data changes
+      if (updatedNodes.length !== flowNodes.length || newEmployeeIds.length > 0 || hasDataChanges) {
         setNodes(updatedNodes);
       }
     }
@@ -568,6 +580,17 @@ const OrgChart = ({
       setEdges(edges);
     }
   }, [edges, setEdges]);
+
+  // Automatically organize and fit view after Monday.com data is loaded and organized
+  useEffect(() => {
+    if (mondayDataLoaded && nodesInitializedRef.current && employees.length > 0 && flowNodes.length > 0) {
+      // Longer delay to ensure all data processing is complete
+      const timeoutId = setTimeout(() => {
+        handleOrganize();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [mondayDataLoaded, employees.length, flowNodes.length, nodesInitializedRef.current]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edge styling is now handled by custom edge components
 

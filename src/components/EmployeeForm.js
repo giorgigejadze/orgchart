@@ -2,20 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, Building, UserCheck } from 'lucide-react';
 import './EmployeeForm.css';
 
-const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
+const EmployeeForm = ({ employee, employees, onSubmit, onCancel, dataSource = 'local' }) => {
   const [formData, setFormData] = useState({
     name: '',
     position: '',
     department: '',
     email: '',
     phone: '',
-    managerId: ''
+    managerId: '',
+    image: null
   });
 
   const [customFields, setCustomFields] = useState([]);
   const [defaultFields, setDefaultFields] = useState({});
   const [requiredFields, setRequiredFields] = useState({});
   const [errors, setErrors] = useState({});
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   // Load custom fields and default fields from localStorage
   useEffect(() => {
@@ -101,7 +104,8 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
       department: randomDepartment,
       email: randomEmail,
       phone: randomPhone,
-      managerId: ''
+      managerId: '',
+      image: null
     };
   };
 
@@ -114,7 +118,8 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
         department: employee.department || '',
         email: employee.email || '',
         phone: employee.phone || '',
-        managerId: employee.managerId ? employee.managerId.toString() : ''
+        managerId: employee.managerId ? employee.managerId.toString() : '',
+        image: employee.image || null
       };
       
       // Add custom fields from employee data
@@ -145,11 +150,11 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
       newErrors.name = 'Name is required';
     }
 
-    if (defaultFields.position && requiredFields.position && !formData.position.trim()) {
+    if (defaultFields.position && requiredFields.position && dataSource !== 'monday' && !formData.position.trim()) {
       newErrors.position = 'Position is required';
     }
 
-    if (defaultFields.department && requiredFields.department && !formData.department.trim()) {
+    if (defaultFields.department && requiredFields.department && dataSource !== 'monday' && !formData.department.trim()) {
       newErrors.department = 'Department is required';
     }
 
@@ -191,9 +196,14 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
-      onSubmit(formData);
+      // Include the image file in the submission
+      const submissionData = {
+        ...formData,
+        imageFile: imageFile
+      };
+      onSubmit(submissionData);
     }
   };
 
@@ -210,6 +220,50 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
         ...prev,
         [name]: ''
       }));
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setErrors(prev => ({
+          ...prev,
+          image: 'Please select a valid image file'
+        }));
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors(prev => ({
+          ...prev,
+          image: 'Image size must be less than 5MB'
+        }));
+        return;
+      }
+
+      setImageFile(file);
+      setFormData(prev => ({
+        ...prev,
+        image: file
+      }));
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+
+      // Clear any previous errors
+      if (errors.image) {
+        setErrors(prev => ({
+          ...prev,
+          image: ''
+        }));
+      }
     }
   };
 
@@ -242,6 +296,44 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
 
       <form onSubmit={handleSubmit}>
         <div className="form-content">
+          {/* Image Upload Section - Moved to top */}
+          <div className="image-upload-section">
+            <div className="form-group">
+              <label>
+                <User size={16} />
+                Image
+              </label>
+              <div className="image-upload-container">
+                {imagePreview || formData.image ? (
+                  <div className="image-preview">
+                    <img
+                      src={imagePreview || (typeof formData.image === 'string' ? formData.image : URL.createObjectURL(formData.image))}
+                      alt="Employee preview"
+                      className="preview-image"
+                    />
+                  </div>
+                ) : (
+                  <div className="image-placeholder">
+                    <User size={48} />
+                  </div>
+                )}
+                <div className="image-controls">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="image-upload" className="change-image-btn">
+                    Change Image
+                  </label>
+                </div>
+              </div>
+              {errors.image && <span className="error-message">{errors.image}</span>}
+            </div>
+          </div>
+
           <div className="form-grid">
             {defaultFields.name && (
               <div className="form-group">
@@ -262,7 +354,7 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
               </div>
             )}
 
-            {defaultFields.position && (
+            {defaultFields.position && dataSource !== 'monday' && (
               <div className="form-group">
                 <label htmlFor="position">
                   <UserCheck size={16} />
@@ -281,7 +373,7 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel }) => {
               </div>
             )}
 
-            {defaultFields.department && (
+            {defaultFields.department && dataSource !== 'monday' && (
               <div className="form-group">
                 <label htmlFor="department">
                   <Building size={16} />

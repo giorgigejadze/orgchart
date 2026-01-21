@@ -696,6 +696,84 @@ export const exportToCSV = (employees) => {
 };
 
 // CSV Import Functions
+// Function to intelligently map CSV columns to employee fields
+const mapCSVColumns = (headers, sampleData) => {
+  const mapping = {
+    name: null,
+    position: null,
+    department: null,
+    email: null,
+    phone: null,
+    manager: null
+  };
+
+  // Common field name variations
+  const nameVariations = ['name', 'fullname', 'full name', 'employee name', 'სახელი', 'name', 'Name', 'Full Name', 'Employee Name', 'სახელი'];
+  const positionVariations = ['position', 'title', 'job title', 'role', 'პოზიცია', 'position', 'job', 'Position', 'Title', 'Job Title', 'Role', 'პოზიცია'];
+  const departmentVariations = ['department', 'dept', 'division', 'დეპარტამენტი', 'department', 'Department', 'Dept', 'Division', 'დეპარტამენტი'];
+  const emailVariations = ['email', 'e-mail', 'email address', 'ელფოსტა', 'email', 'Email', 'E-mail', 'Email Address', 'ელფოსტა'];
+  const phoneVariations = ['phone', 'telephone', 'phone number', 'mobile', 'ტელეფონი', 'phone', 'Phone', 'Telephone', 'Phone Number', 'Mobile', 'ტელეფონი'];
+  const managerVariations = ['manager', 'supervisor', 'boss', 'მენეჯერი', 'manager', 'Manager', 'Supervisor', 'Boss', 'მენეჯერი'];
+
+  // First pass: exact matches with common variations
+  headers.forEach((header, index) => {
+    const lowerHeader = header.toLowerCase().trim();
+
+    if (nameVariations.some(v => lowerHeader.includes(v)) && !mapping.name) {
+      mapping.name = header;
+    } else if (positionVariations.some(v => lowerHeader.includes(v)) && !mapping.position) {
+      mapping.position = header;
+    } else if (departmentVariations.some(v => lowerHeader.includes(v)) && !mapping.department) {
+      mapping.department = header;
+    } else if (emailVariations.some(v => lowerHeader.includes(v)) && !mapping.email) {
+      mapping.email = header;
+    } else if (phoneVariations.some(v => lowerHeader.includes(v)) && !mapping.phone) {
+      mapping.phone = header;
+    } else if (managerVariations.some(v => lowerHeader.includes(v)) && !mapping.manager) {
+      mapping.manager = header;
+    }
+  });
+
+  // Second pass: detect by data patterns if fields are still unmapped
+  if (sampleData && sampleData.length > 0) {
+    headers.forEach((header, index) => {
+      if (mapping.name && mapping.position && mapping.department && mapping.email && mapping.phone && mapping.manager) {
+        return; // All fields mapped
+      }
+
+      const sampleValues = sampleData.slice(0, 3).map(row => row[header]).filter(val => val && val.trim());
+
+      if (sampleValues.length === 0) return;
+
+      // Check for email pattern
+      if (!mapping.email && sampleValues.every(val => /\S+@\S+\.\S+/.test(val))) {
+        mapping.email = header;
+        return;
+      }
+
+      // Check for phone pattern
+      if (!mapping.phone && sampleValues.every(val => /^[\+]?[\d\s\-\(\)]{7,}$/.test(val))) {
+        mapping.phone = header;
+        return;
+      }
+
+      // Check for manager references (names that appear in other rows)
+      if (!mapping.manager) {
+        const allNames = sampleData.map(row => row[mapping.name || 'name'] || row['Name'] || '').filter(n => n);
+        const hasManagerRefs = sampleValues.some(val =>
+          allNames.some(name => name && val.includes(name))
+        );
+        if (hasManagerRefs) {
+          mapping.manager = header;
+          return;
+        }
+      }
+    });
+  }
+
+  return mapping;
+};
+
 export const importFromCSV = (file, onImport, existingEmployees = []) => {
   Papa.parse(file, {
     header: true,
@@ -706,6 +784,10 @@ export const importFromCSV = (file, onImport, existingEmployees = []) => {
       const defaultFields = JSON.parse(localStorage.getItem('defaultFields') || '{}');
       const requiredFields = JSON.parse(localStorage.getItem('requiredFields') || '{}');
 
+      // Create column mapping
+      const headers = results.meta.fields || [];
+      const columnMapping = mapCSVColumns(headers, results.data);
+
       // First pass: Create employees with basic data
       const importedEmployees = results.data.map((row, index) => {
         const employee = {
@@ -715,20 +797,20 @@ export const importFromCSV = (file, onImport, existingEmployees = []) => {
         };
 
         // Import default fields if they are enabled
-        if (defaultFields.name !== false) {
-          employee.name = row.Name || row.name || '';
+        if (defaultFields.name !== false && columnMapping.name) {
+          employee.name = row[columnMapping.name] || '';
         }
-        if (defaultFields.position !== false) {
-          employee.position = row.Position || row.position || '';
+        if (defaultFields.position !== false && columnMapping.position) {
+          employee.position = row[columnMapping.position] || '';
         }
-        if (defaultFields.department !== false) {
-          employee.department = row.Department || row.department || '';
+        if (defaultFields.department !== false && columnMapping.department) {
+          employee.department = row[columnMapping.department] || '';
         }
-        if (defaultFields.email !== false) {
-          employee.email = row.Email || row.email || '';
+        if (defaultFields.email !== false && columnMapping.email) {
+          employee.email = row[columnMapping.email] || '';
         }
-        if (defaultFields.phone !== false) {
-          employee.phone = row.Phone || row.phone || '';
+        if (defaultFields.phone !== false && columnMapping.phone) {
+          employee.phone = row[columnMapping.phone] || '';
         }
 
         // Import custom fields if they are enabled
@@ -755,31 +837,57 @@ export const importFromCSV = (file, onImport, existingEmployees = []) => {
       const allEmployees = [...existingEmployees, ...importedEmployees];
 
       importedEmployees.forEach(employee => {
-        // Get manager name from CSV row
-        const csvRow = results.data.find(row =>
-          (row.Name || row.name) === employee.name &&
-          (row.Position || row.position) === employee.position
-        );
+        // Get manager name from CSV row - find matching row by name (or name + position for uniqueness)
+        const csvRow = results.data.find(row => {
+          const rowName = row[columnMapping.name] || '';
+          // First try exact name match
+          if (rowName === employee.name) {
+            return true;
+          }
+          // If no exact match, try name + position match for disambiguation
+          if (columnMapping.position) {
+            const rowPosition = row[columnMapping.position] || '';
+            return rowName === employee.name && rowPosition === employee.position;
+          }
+          return false;
+        });
 
-        if (csvRow && csvRow.Manager && csvRow.Manager.trim()) {
-          const managerName = csvRow.Manager.trim();
+        if (csvRow && columnMapping.manager && csvRow[columnMapping.manager] && csvRow[columnMapping.manager].trim()) {
+          const managerName = csvRow[columnMapping.manager].trim();
 
           // Skip if manager is "No Manager" or similar
           if (managerName.toLowerCase() === 'no manager' ||
               managerName.toLowerCase() === '' ||
-              managerName === 'null') {
+              managerName === 'null' ||
+              managerName.toLowerCase() === 'none') {
             return;
           }
 
           // Find manager by name in all employees (existing + newly imported)
-          const manager = allEmployees.find(emp =>
-            emp.name && emp.name.toLowerCase() === managerName.toLowerCase()
+          // Try multiple matching strategies
+          let manager = allEmployees.find(emp =>
+            emp.name && emp.name === managerName
           );
+
+          // Try case-insensitive match
+          if (!manager) {
+            manager = allEmployees.find(emp =>
+              emp.name && emp.name.toLowerCase() === managerName.toLowerCase()
+            );
+          }
+
+          // Try partial match (in case of name variations)
+          if (!manager) {
+            manager = allEmployees.find(emp =>
+              emp.name && (
+                emp.name.toLowerCase().includes(managerName.toLowerCase()) ||
+                managerName.toLowerCase().includes(emp.name.toLowerCase())
+              )
+            );
+          }
 
           if (manager) {
             employee.managerId = manager.id;
-          } else {
-            // Could not find manager
           }
         }
       });

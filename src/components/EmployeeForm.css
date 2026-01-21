@@ -498,3 +498,110 @@
 .form-group:hover::after {
   width: 100%;
 }
+
+/* Image Upload Section */
+.image-upload-section {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.image-upload-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  transition: all 0.3s ease;
+}
+
+.image-upload-container:hover {
+  border-color: var(--accent-color);
+  background: var(--bg-hover);
+}
+
+.image-preview {
+  position: relative;
+}
+
+.preview-image {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--accent-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  color: var(--text-secondary);
+  gap: 0.5rem;
+}
+
+.image-placeholder svg {
+  opacity: 0.6;
+}
+
+.image-placeholder span {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.image-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.change-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.change-image-btn:hover {
+  background: var(--button-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.remove-image-btn {
+  padding: 0.75rem 1.25rem;
+  background: var(--error-color, #dc3545);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.remove-image-btn:hover {
+  background: var(--error-hover, #c82333);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

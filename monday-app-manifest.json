@@ -1,0 +1,28 @@
+{
+  "name": "Organizational Chart",
+  "description": "A powerful organizational chart application for visualizing team structures and hierarchies. Manage employees, view reporting relationships, and export organizational data.",
+  "scopes": [
+    "boards:read",
+    "items:read",
+    "users:read",
+    "workspaces:read"
+  ],
+  "features": [
+    {
+      "name": "dashboard",
+      "url": "./index.html",
+      "icon": {
+        "name": "Users",
+        "color": "#007bff"
+      },
+      "description": "View and manage your organizational chart"
+    }
+  ],
+  "api_version": "2023-10",
+  "supported_features": [
+    "dashboard"
+  ],
+  "default_features": [
+    "dashboard"
+  ]
+}

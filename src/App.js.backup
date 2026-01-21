@@ -687,10 +687,6 @@ function App() {
                 text
                 value
                 type
-                column {
-                  title
-                  type
-                }
                 ... on StatusValue {
                   text
                   index
@@ -729,71 +725,50 @@ function App() {
         })));
 
         // Detect column mappings from the board structure
-        // Load existing column mappings from localStorage first
-        const savedColumnMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
-        const detectedMappings = { ...savedColumnMappings };
-        console.log('📦 Loaded saved column mappings from localStorage:', detectedMappings);
-        
+        const detectedMappings = {};
         if (items.length > 0 && items[0].column_values) {
           const sampleItem = items[0];
 
           // Analyze each column to determine what field it represents
-          console.log(`🔍 STARTING COLUMN ANALYSIS for ${sampleItem.column_values.length} columns:`);
-          console.log('📋 Initial detectedMappings state:', detectedMappings);
-
           sampleItem.column_values.forEach(col => {
             const columnId = col.id;
-            const columnTitle = (col.column?.title || '').toLowerCase().trim();
+            const columnText = (col.text || '').toLowerCase().trim();
             const columnType = col.type;
 
-            console.log(`🔍 Analyzing column: ID=${columnId}, Title="${col.column?.title}", Cell Value="${col.text}", Type=${columnType}`);
+            console.log(`🔍 Analyzing column: ID=${columnId}, Text="${col.text}", Type=${columnType}`);
 
-            // Check if this column is already mapped to prevent duplicates
-            const existingMapping = Object.keys(detectedMappings).find(key => detectedMappings[key] === columnId);
+            // Map columns based on their text/header names and types
+            // Only map to appropriate column types (not files) and prevent duplicate mappings
+            if (columnType !== 'file' && columnType !== 'files') {
+              // Check if this column is already mapped to prevent duplicates
+              const existingMapping = Object.keys(detectedMappings).find(key => detectedMappings[key] === columnId);
 
-            if (existingMapping) {
-              console.log(`⏭️ Skipping column ${columnId} "${col.column?.title}" - already mapped to ${existingMapping}`);
-              console.log(`   Current mappings:`, detectedMappings);
-            } else {
-              console.log(`🔄 Processing column ${columnId} "${col.column?.title}" for mapping...`);
-              
-              // Handle image column detection first (can be file type)
-              if (columnTitle.includes('image') || columnTitle.includes('photo') || columnTitle.includes('avatar') || columnTitle.includes('სურათი') || columnTitle.includes('picture') || columnTitle.includes('pic')) {
-                if (!detectedMappings.image) {
-                  detectedMappings.image = columnId;
-                  console.log(`✅ Mapped IMAGE to column ${columnId} (type: ${columnType})`);
-                }
-              }
-              // Map columns based on their text/header names and types
-              // Only map to appropriate column types (not files) and prevent duplicate mappings
-              if (columnType !== 'file' && columnType !== 'files') {
-                if (columnTitle.includes('position') || columnTitle.includes('პოზიცია') || columnTitle === 'role' || columnTitle.includes('title') || columnTitle.includes('job') || columnTitle.includes('function')) {
-                  console.log(`🎯 Column "${col.column?.title}" matches POSITION pattern`);
-                  if (!detectedMappings.position) {
+              if (existingMapping) {
+                console.log(`⏭️ Skipping column ${columnId} "${col.text}" - already mapped to ${existingMapping}`);
+              } else {
+                if (columnText.includes('position') || columnText.includes('პოზიცია') || columnText === 'role' || columnText.includes('title') || columnText.includes('job') || columnText.includes('function')) {
+                  // Position should only be mapped to text columns
+                  if (!detectedMappings.position && columnType === 'text') {
                     detectedMappings.position = columnId;
                     console.log(`✅ Mapped POSITION to column ${columnId} (type: ${columnType})`);
-                  } else {
-                    console.log(`⏭️ POSITION already mapped, skipping ${columnId}`);
                   }
-                } else if (columnTitle.includes('department') || columnTitle.includes('განყოფილება') || columnTitle.includes('dept') || columnTitle.includes('division') || columnTitle.includes('team') || columnTitle.includes('group') || columnTitle.includes('unit') || columnTitle.includes('sector') || columnTitle.includes('branch')) {
-                  console.log(`🎯 Column "${col.column?.title}" matches DEPARTMENT pattern`);
-                  if (!detectedMappings.department) {
+                } else if (columnText.includes('department') || columnText.includes('განყოფილება') || columnText.includes('dept') || columnText.includes('division') || columnText.includes('team') || columnText.includes('group') || columnText.includes('unit') || columnText.includes('sector') || columnText.includes('branch')) {
+                  // Department can be mapped to dropdown or text columns
+                  if (!detectedMappings.department && (columnType === 'text' || columnType === 'dropdown' || columnType === 'status')) {
                     detectedMappings.department = columnId;
                     console.log(`✅ Mapped DEPARTMENT to column ${columnId} (type: ${columnType})`);
-                  } else {
-                    console.log(`⏭️ DEPARTMENT already mapped, skipping ${columnId}`);
                   }
-                } else if (columnTitle.includes('manager') || columnTitle.includes('მენეჯერი') || columnTitle.includes('supervisor') || columnTitle.includes('boss') || columnTitle.includes('lead') || columnTitle.includes('reports to') || columnTitle.includes('superior') || columnTitle.includes('head') || columnTitle.includes('director') || columnTitle.includes('chief')) {
+                } else if (columnText.includes('manager') || columnText.includes('მენეჯერი') || columnText.includes('supervisor') || columnText.includes('boss') || columnText.includes('lead') || columnText.includes('reports to') || columnText.includes('superior') || columnText.includes('head') || columnText.includes('director') || columnText.includes('chief')) {
                   if (!detectedMappings.manager) {
                     detectedMappings.manager = columnId;
                     console.log(`✅ Mapped MANAGER to column ${columnId} (type: ${columnType})`);
                   }
-                } else if (columnTitle.includes('email') || columnTitle.includes('ელფოსტა') || columnTitle.includes('e-mail') || columnTitle.includes('mail') || columnTitle.includes('@')) {
+                } else if (columnText.includes('email') || columnText.includes('ელფოსტა') || columnText.includes('e-mail') || columnText.includes('mail') || columnText.includes('@')) {
                   if (!detectedMappings.email) {
                     detectedMappings.email = columnId;
                     console.log(`✅ Mapped EMAIL to column ${columnId} (type: ${columnType})`);
                   }
-                } else if (columnTitle.includes('phone') || columnTitle.includes('ტელეფონი') || columnTitle.includes('mobile') || columnTitle.includes('contact') || columnTitle.includes('tel') || columnTitle.includes('telephone') || columnTitle.includes('cell') || columnTitle.includes('number')) {
+                } else if (columnText.includes('phone') || columnText.includes('ტელეფონი') || columnText.includes('mobile') || columnText.includes('contact') || columnText.includes('tel') || columnText.includes('telephone') || columnText.includes('cell') || columnText.includes('number')) {
                   // Only map phone to text columns, not dropdown columns
                   if (!detectedMappings.phone && (columnType === 'text' || columnType === 'phone')) {
                     detectedMappings.phone = columnId;
@@ -801,9 +776,14 @@ function App() {
                   } else if (columnType === 'dropdown' || columnType === 'status') {
                     console.log(`⏭️ Skipping dropdown column ${columnId} for phone mapping`);
                   }
-                } else if (columnTitle.includes('location') || columnTitle.includes('ადგილმდებარეობა') || columnTitle.includes('office') || columnTitle.includes('city') || columnTitle.includes('address')) {
+                } else if (columnText.includes('image') || columnText.includes('photo') || columnText.includes('avatar') || columnText.includes('სურათი') || columnText.includes('picture') || columnText.includes('pic')) {
+                  if (!detectedMappings.image) {
+                    detectedMappings.image = columnId;
+                    console.log(`✅ Mapped IMAGE to column ${columnId} (type: ${columnType})`);
+                  }
+                } else if (columnText.includes('location') || columnText.includes('ადგილმდებარეობა') || columnText.includes('office') || columnText.includes('city') || columnText.includes('address')) {
                   // If it's specifically address, map to address instead
-                  if (columnTitle.includes('address') || columnTitle.includes('მისამართი')) {
+                  if (columnText.includes('address') || columnText.includes('მისამართი')) {
                     if (!detectedMappings.address) {
                       detectedMappings.address = columnId;
                       console.log(`✅ Mapped ADDRESS to column ${columnId} (type: ${columnType})`);
@@ -814,34 +794,28 @@ function App() {
                       console.log(`✅ Mapped LOCATION to column ${columnId} (type: ${columnType})`);
                     }
                   }
-                } else if ((columnTitle.includes('start') && columnTitle.includes('date')) || columnTitle.includes('hire date') || columnTitle.includes('join date') || columnTitle.includes('employment date')) {
+                } else if ((columnText.includes('start') && columnText.includes('date')) || columnText.includes('hire date') || columnText.includes('join date') || columnText.includes('employment date')) {
                   if (!detectedMappings.startDate) {
                     detectedMappings.startDate = columnId;
                     console.log(`✅ Mapped START_DATE to column ${columnId} (type: ${columnType})`);
                   }
-                } else if (columnTitle.includes('salary') || columnTitle.includes('ხელფასი') || columnTitle.includes('pay') || columnTitle.includes('compensation') || columnTitle.includes('wage') || columnTitle.includes('income')) {
+                } else if (columnText.includes('salary') || columnText.includes('ხელფასი') || columnText.includes('pay') || columnText.includes('compensation') || columnText.includes('wage') || columnText.includes('income')) {
                   if (!detectedMappings.salary) {
                     detectedMappings.salary = columnId;
                     console.log(`✅ Mapped SALARY to column ${columnId} (type: ${columnType})`);
                   }
-                } else if (columnTitle.includes('notes') || columnTitle.includes('შენიშვნები') || columnTitle.includes('comments') || columnTitle.includes('description') || columnTitle.includes('remarks')) {
+                } else if (columnText.includes('notes') || columnText.includes('შენიშვნები') || columnText.includes('comments') || columnText.includes('description') || columnText.includes('remarks')) {
                   if (!detectedMappings.notes) {
                     detectedMappings.notes = columnId;
                     console.log(`✅ Mapped NOTES to column ${columnId} (type: ${columnType})`);
                   }
                 }
               }
-              
-              // Log if column was skipped (file type that's not image)
-              if (columnType === 'file' || columnType === 'files') {
-                if (!columnTitle.includes('image') && !columnTitle.includes('photo') && !columnTitle.includes('avatar') && !columnTitle.includes('სურათი') && !columnTitle.includes('picture') && !columnTitle.includes('pic')) {
-                  console.log(`⏭️ Skipping file column ${columnId} "${col.column?.title}" (not an image column)`);
-                }
-              }
+            } else {
+              console.log(`⏭️ Skipping column ${columnId} "${col.text}" (type: ${columnType} - not suitable for text data)`);
             }
           });
 
-          console.log('📋 Column processing complete. Checking final mappings...');
           console.log('🗺️ FINAL column mappings:', detectedMappings);
           console.log('📊 Mapping summary:', Object.keys(detectedMappings).length, 'mappings found');
 
@@ -855,16 +829,7 @@ function App() {
                 console.log(`   ${field} → ${columnId} (DUPLICATE)`);
               }
             });
-          } else {
-            console.log('✅ No duplicate mappings found');
           }
-
-          // Show current mappings before showing all columns
-          console.log('🔍 CURRENT MAPPINGS SUMMARY:');
-          Object.entries(detectedMappings).forEach(([field, columnId]) => {
-            const columnInfo = sampleItem.column_values.find(col => col.id === columnId);
-            console.log(`   ${field.toUpperCase()}: ${columnId} "${columnInfo ? columnInfo.text : 'UNKNOWN'}" (type: ${columnInfo ? columnInfo.type : 'UNKNOWN'})`);
-          });
 
           // Show all columns with detailed information
           console.log('📋 ALL COLUMNS in Monday.com board:');
@@ -873,6 +838,14 @@ function App() {
             const mappingKey = Object.keys(detectedMappings).find(key => detectedMappings[key] === col.id);
             console.log(`   ${isMapped ? '✅' : '❌'} Column ID: ${col.id}, Name: "${col.text}", Type: ${col.type}${mappingKey ? ` → MAPPED AS: ${mappingKey.toUpperCase()}` : ''}`);
           });
+
+          // Summary of what we found
+          console.log('📈 COLUMN DETECTION SUMMARY:');
+          console.log(`   Position: ${detectedMappings.position ? '✅ Found' : '❌ Not found'}`);
+          console.log(`   Department: ${detectedMappings.department ? '✅ Found' : '❌ Not found'}`);
+          console.log(`   Manager: ${detectedMappings.manager ? '✅ Found' : '❌ Not found'}`);
+          console.log(`   Phone: ${detectedMappings.phone ? '✅ Found' : '❌ Not found'}`);
+          console.log(`   Email: ${detectedMappings.email ? '✅ Found' : '❌ Not found'}`);
 
           console.log('📋 Intermediate mappings after main detection:', detectedMappings);
 
@@ -899,10 +872,14 @@ function App() {
           unmappedColumns.forEach(col => {
             if (mappingIndex < fieldsToMap.length) {
               const fieldName = fieldsToMap[mappingIndex];
-              // Special handling for phone field - only map to text columns
+              // Special handling for different field types
               if (fieldName === 'phone' && (col.type === 'dropdown' || col.type === 'status')) {
                 console.log(`⏭️ Skipping dropdown column ${col.id} for phone mapping`);
                 return; // Skip this column for phone mapping
+              }
+              // Department can be mapped to dropdown columns
+              if (fieldName === 'department' && col.type === 'dropdown') {
+                console.log(`🎯 Found dropdown column ${col.id} for department mapping`);
               }
               if (!detectedMappings[fieldName]) {
                 detectedMappings[fieldName] = col.id;
@@ -917,25 +894,17 @@ function App() {
             console.log('⚠️ Some key fields still unmapped, trying aggressive matching...');
 
             availableColumns.forEach(col => {
-              const columnTitle = (col.column?.title || '').toLowerCase().trim();
-              const columnId = col.id;
+              const columnText = (col.text || '').toLowerCase().trim();
 
-              // Check if this column is already mapped to prevent duplicates
-              const existingMapping = Object.keys(detectedMappings).find(key => detectedMappings[key] === columnId);
-
-              if (!existingMapping) {
-                if (!detectedMappings.department && (columnTitle.includes('team') || columnTitle.includes('group') || columnTitle.includes('unit') || columnTitle.length <= 10)) {
-                  detectedMappings.department = columnId;
-                  console.log(`🎯 Aggressive mapping - DEPARTMENT: ${columnId} "${col.column?.title}"`);
-                } else if (!detectedMappings.manager && (columnTitle.includes('report') || columnTitle.includes('superior') || columnTitle.includes('chief'))) {
-                  detectedMappings.manager = columnId;
-                  console.log(`🎯 Aggressive mapping - MANAGER: ${columnId} "${col.column?.title}"`);
-                } else if (!detectedMappings.phone && (columnTitle.includes('contact') || columnTitle.includes('cell') || columnTitle.includes('communication')) && (col.type === 'text' || col.type === 'phone')) {
-                  detectedMappings.phone = columnId;
-                  console.log(`🎯 Aggressive mapping - PHONE: ${columnId} "${col.column?.title}" (type: ${col.type})`);
-                }
-              } else {
-                console.log(`⏭️ Skipping aggressive mapping for ${columnId} "${col.column?.title}" - already mapped to ${existingMapping}`);
+              if (!detectedMappings.department && (columnText.includes('team') || columnText.includes('group') || columnText.includes('unit') || columnText.includes('dept') || columnText.length <= 10) && (col.type === 'text' || col.type === 'dropdown' || col.type === 'status')) {
+                detectedMappings.department = col.id;
+                console.log(`🎯 Aggressive mapping - DEPARTMENT: ${col.id} "${col.text}" (type: ${col.type})`);
+              } else if (!detectedMappings.manager && (columnText.includes('report') || columnText.includes('superior') || columnText.includes('chief'))) {
+                detectedMappings.manager = col.id;
+                console.log(`🎯 Aggressive mapping - MANAGER: ${col.id} "${col.text}"`);
+              } else if (!detectedMappings.phone && (columnText.includes('contact') || columnText.includes('cell') || columnText.includes('communication')) && (col.type === 'text' || col.type === 'phone')) {
+                detectedMappings.phone = col.id;
+                console.log(`🎯 Aggressive mapping - PHONE: ${col.id} "${col.text}" (type: ${col.type})`);
               }
             });
           }
@@ -947,44 +916,30 @@ function App() {
             const columnType = col.type;
 
             // Additional mapping by column ID patterns
-            // Check if this column is already mapped to prevent duplicates
-            const existingMapping = Object.keys(detectedMappings).find(key => detectedMappings[key] === columnId);
-
-            if (!existingMapping) {
-              if (columnId.includes('text') && !detectedMappings.position) {
-                // First available text column could be position
-                detectedMappings.position = columnId;
-                console.log(`🔄 Additional mapping - POSITION: ${columnId} (${col.text})`);
-              } else if (columnId.includes('text') && !detectedMappings.department) {
-                // Available text column could be department
-                detectedMappings.department = columnId;
-                console.log(`🔄 Additional mapping - DEPARTMENT: ${columnId} (${col.text})`);
-              } else if (columnId.includes('text') && !detectedMappings.phone) {
-                // Available text column could be phone
-                detectedMappings.phone = columnId;
-                console.log(`🔄 Additional mapping - PHONE: ${columnId} (${col.text})`);
-              }
-            } else {
-              console.log(`⏭️ Skipping additional mapping for ${columnId} "${col.text}" - already mapped to ${existingMapping}`);
+            if (columnId.includes('text') && !detectedMappings.position) {
+              // First available text column could be position
+              detectedMappings.position = columnId;
+              console.log(`🔄 Additional mapping - POSITION: ${columnId} (${col.text})`);
+            } else if (columnId.includes('text') && !detectedMappings.department && detectedMappings.position !== columnId) {
+              // Second text column could be department
+              detectedMappings.department = columnId;
+              console.log(`🔄 Additional mapping - DEPARTMENT: ${columnId} (${col.text})`);
+            } else if (columnId.includes('text') && !detectedMappings.phone && detectedMappings.position !== columnId && detectedMappings.department !== columnId) {
+              // Third text column could be phone
+              detectedMappings.phone = columnId;
+              console.log(`🔄 Additional mapping - PHONE: ${columnId} (${col.text})`);
             }
 
             // Map by type if text contains common words
-            // Check if this column is already mapped to prevent duplicates
-            const existingMapping2 = Object.keys(detectedMappings).find(key => detectedMappings[key] === columnId);
-
-            if (!existingMapping2) {
-              if (columnType === 'text' && columnText.includes('pos') && !detectedMappings.position) {
-                detectedMappings.position = columnId;
-                console.log(`🔄 Type-based mapping - POSITION: ${columnId} (${col.text})`);
-              } else if (columnType === 'text' && columnText.includes('dept') && !detectedMappings.department) {
-                detectedMappings.department = columnId;
-                console.log(`🔄 Type-based mapping - DEPARTMENT: ${columnId} (${col.text})`);
-              } else if (columnType === 'text' && columnText.includes('phone') && !detectedMappings.phone) {
-                detectedMappings.phone = columnId;
-                console.log(`🔄 Type-based mapping - PHONE: ${columnId} (${col.text})`);
-              }
-            } else {
-              console.log(`⏭️ Skipping type-based mapping for ${columnId} "${col.text}" - already mapped to ${existingMapping2}`);
+            if (columnType === 'text' && columnText.includes('pos')) {
+              detectedMappings.position = columnId;
+              console.log(`🔄 Type-based mapping - POSITION: ${columnId} (${col.text})`);
+            } else if (columnType === 'text' && columnText.includes('dept')) {
+              detectedMappings.department = columnId;
+              console.log(`🔄 Type-based mapping - DEPARTMENT: ${columnId} (${col.text})`);
+            } else if (columnType === 'text' && columnText.includes('phone')) {
+              detectedMappings.phone = columnId;
+              console.log(`🔄 Type-based mapping - PHONE: ${columnId} (${col.text})`);
             }
           });
 
@@ -1010,31 +965,6 @@ function App() {
             console.log('🎯 Final mappings after fallback:', detectedMappings);
           }
 
-          // Map custom fields to Monday.com columns
-          const customFields = JSON.parse(localStorage.getItem('customFields') || '[]');
-          if (customFields.length > 0 && sampleItem) {
-            console.log('🔍 Detecting custom field column mappings...');
-            customFields.forEach(customField => {
-              // Try to find column by exact name match
-              const matchingColumn = sampleItem.column_values.find(col => {
-                const columnTitle = (col.column?.title || col.text || '').toLowerCase().trim();
-                const fieldName = customField.name.toLowerCase().trim();
-                return columnTitle === fieldName;
-              });
-
-              if (matchingColumn && !detectedMappings[customField.name]) {
-                detectedMappings[customField.name] = matchingColumn.id;
-                console.log(`✅ Mapped custom field "${customField.name}" to column ${matchingColumn.id}`);
-              } else if (!matchingColumn) {
-                console.log(`⚠️ Custom field "${customField.name}" not found in Monday.com columns`);
-              }
-            });
-          }
-
-          // Save column mappings to localStorage
-          localStorage.setItem('columnMappings', JSON.stringify(detectedMappings));
-          console.log('💾 Saved column mappings to localStorage:', detectedMappings);
-          
           setColumnMappings(detectedMappings);
         }
 
@@ -1076,43 +1006,6 @@ function App() {
         // Enhanced value extraction from monday.com column
         const extractColumnValue = (column) => {
           if (!column) return null;
-
-          // Special handling for email columns - extract only email address
-          if (column.type === 'email' || column.id?.includes('email')) {
-            if (column.value) {
-              try {
-                const parsed = JSON.parse(column.value);
-                if (parsed && typeof parsed === 'object') {
-                  // Email columns have structure: {"email": "email@example.com", "text": "Name - email@example.com"}
-                  // Extract only the email address, not the display text
-                  if (parsed.email) {
-                    return parsed.email.trim();
-                  }
-                  // Fallback: try to extract email from text if it contains email pattern
-                  if (parsed.text) {
-                    const emailMatch = parsed.text.match(/[\w\.-]+@[\w\.-]+\.\w+/);
-                    if (emailMatch) {
-                      return emailMatch[0];
-                    }
-                    return parsed.text.trim();
-                  }
-                }
-              } catch (e) {
-              // If not JSON, try to extract email from string
-              const emailMatch = String(column.value).match(/[\w\.-]+@[\w\.-]+\.\w+/);
-              if (emailMatch) {
-                return emailMatch[0];
-              }
-            }
-            }
-            // If text contains email pattern, extract it
-            if (column.text) {
-              const emailMatch = column.text.match(/[\w\.-]+@[\w\.-]+\.\w+/);
-              if (emailMatch) {
-                return emailMatch[0];
-              }
-            }
-          }
 
           // Debug logging for column extraction
           // console.log('🔍 Processing column:', column.id, 'type:', column.type, 'text:', column.text, 'value:', column.value);
@@ -2203,67 +2096,6 @@ function App() {
             }
           }
 
-          // Extract custom field values from Monday.com
-          const customFieldValues = {};
-          const customFields = JSON.parse(localStorage.getItem('customFields') || '[]');
-          customFields.forEach(customField => {
-            const fieldColumnId = detectedMappings[customField.name];
-            if (fieldColumnId) {
-              const customFieldColumn = item.column_values.find(col => col.id === fieldColumnId);
-              if (customFieldColumn) {
-                let fieldValue = extractColumnValue(customFieldColumn);
-                
-                // Format value based on field type
-                if (customField.type === 'email' && fieldValue) {
-                  // Extract email from Monday.com email column format
-                  if (typeof fieldValue === 'string' && fieldValue.includes('@')) {
-                    // If it's already an email string, use it
-                    customFieldValues[customField.name] = fieldValue;
-                  } else if (customFieldColumn.value) {
-                    // Try to parse email from column value JSON
-                    try {
-                      const parsed = JSON.parse(customFieldColumn.value);
-                      if (parsed && parsed.email) {
-                        customFieldValues[customField.name] = parsed.email;
-                      } else {
-                        customFieldValues[customField.name] = fieldValue || '';
-                      }
-                    } catch (e) {
-                      customFieldValues[customField.name] = fieldValue || '';
-                    }
-                  } else {
-                    customFieldValues[customField.name] = fieldValue || '';
-                  }
-                } else if (customField.type === 'phone' && fieldValue) {
-                  // Extract phone from Monday.com phone column format
-                  if (customFieldColumn.value) {
-                    try {
-                      const parsed = JSON.parse(customFieldColumn.value);
-                      if (parsed && parsed.phone) {
-                        customFieldValues[customField.name] = parsed.phone;
-                      } else {
-                        customFieldValues[customField.name] = fieldValue || '';
-                      }
-                    } catch (e) {
-                      customFieldValues[customField.name] = fieldValue || '';
-                    }
-                  } else {
-                    customFieldValues[customField.name] = fieldValue || '';
-                  }
-                } else {
-                  // Text, number, date, dropdown - use extracted value
-                  customFieldValues[customField.name] = fieldValue || '';
-                }
-                
-                console.log(`✅ Loaded custom field "${customField.name}":`, customFieldValues[customField.name], 'from column', fieldColumnId);
-              } else {
-                console.log(`⚠️ Custom field column "${customField.name}" (${fieldColumnId}) not found in item columns`);
-              }
-            } else {
-              console.log(`⚠️ Custom field "${customField.name}" has no column mapping`);
-            }
-          });
-
           const employeeData = {
             id: parseInt(item.id),
             name: fullName,
@@ -2283,8 +2115,6 @@ function App() {
             ...numericValues,
             ...dateValues,
             ...dropdownValues,
-            // Store custom field values
-            ...customFieldValues,
             // Store whether we have a valid name from any source
             hasValidName: !!fullName && fullName.trim().length > 0
           };
@@ -2609,76 +2439,15 @@ function App() {
     }
   };
 
-  // Helper function to format phone number for Monday.com phone column
-  const formatPhoneForMonday = (phoneNumber) => {
-    if (!phoneNumber) return null;
-    
-    // Remove all non-digit characters except +
-    let cleaned = phoneNumber.replace(/[^\d+]/g, '');
-    
-    // Ensure it starts with +
-    if (!cleaned.startsWith('+')) {
-      // If it doesn't start with +, try to detect country code
-      // Common patterns: starts with country code (e.g., 995 for Georgia, 1 for US)
-      if (cleaned.startsWith('995')) {
-        cleaned = '+' + cleaned;
-      } else if (cleaned.startsWith('1') && cleaned.length === 11) {
-        cleaned = '+' + cleaned;
-      } else {
-        // Default: assume it's a local number, add +995 for Georgia
-        cleaned = '+995' + cleaned;
-      }
-    }
-    
-    // Extract country code from phone number
-    // Common country codes: +995 (Georgia), +1 (US/Canada), +44 (UK), +49 (Germany), etc.
-    let countryShortName = 'GE'; // Default to Georgia
-    
-    if (cleaned.startsWith('+995')) {
-      countryShortName = 'GE';
-    } else if (cleaned.startsWith('+1')) {
-      countryShortName = 'US';
-    } else if (cleaned.startsWith('+44')) {
-      countryShortName = 'GB';
-    } else if (cleaned.startsWith('+49')) {
-      countryShortName = 'DE';
-    } else if (cleaned.startsWith('+33')) {
-      countryShortName = 'FR';
-    } else if (cleaned.startsWith('+7')) {
-      countryShortName = 'RU';
-    } else if (cleaned.startsWith('+90')) {
-      countryShortName = 'TR';
-    } else if (cleaned.startsWith('+86')) {
-      countryShortName = 'CN';
-    } else if (cleaned.startsWith('+81')) {
-      countryShortName = 'JP';
-    } else if (cleaned.startsWith('+91')) {
-      countryShortName = 'IN';
-    }
-    // Add more country codes as needed
-    
-    return {
-      phone: cleaned,
-      countryShortName: countryShortName
-    };
-  };
-
   // Add employee to Monday.com board
-  const addEmployeeToMonday = async (employeeData, boardIdToUse, columnMappings = {}) => {
-    console.log('📨 addEmployeeToMonday received:', employeeData);
+  const addEmployeeToMonday = async (employeeData, boardIdToUse) => {
     if (!boardIdToUse) {
       console.warn('⚠️ No board ID available for adding employee to Monday.com');
       return null;
     }
 
-    // Always load column mappings from localStorage to ensure we have the latest mappings
-    const savedColumnMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
-    columnMappings = { ...columnMappings, ...savedColumnMappings };
-    console.log('📦 Loaded column mappings from localStorage:', savedColumnMappings);
-    console.log('🗺️ Current column mappings (merged):', columnMappings);
-
     try {
-      // First, create the item with name (we need item_id before uploading file)
+      // First, try to create a simple item with just the name
       console.log('📝 Step 1: Creating employee item with name only');
       const createMutation = `
         mutation {
@@ -2704,120 +2473,6 @@ function App() {
       const itemId = createResponse.data.create_item.id;
       console.log('✅ Employee item created with ID:', itemId);
 
-      // Upload image file if present (must be done after item creation)
-      if (employeeData.imageFile) {
-        console.log('🖼️ Step 1.5: Processing image file...');
-        console.log('📋 Image file details:', {
-          name: employeeData.imageFile.name,
-          size: employeeData.imageFile.size,
-          type: employeeData.imageFile.type,
-          hasImageMapping: !!columnMappings.image,
-          imageColumnId: columnMappings.image
-        });
-
-          if (columnMappings.image) {
-            console.log('🖼️ Uploading image file to Monday.com...');
-            try {
-              // Compress/resize image before upload to reduce size
-              const compressedImage = await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => {
-                  const canvas = document.createElement('canvas');
-                  const maxWidth = 800;
-                  const maxHeight = 800;
-                  let width = img.width;
-                  let height = img.height;
-
-                  // Calculate new dimensions
-                  if (width > height) {
-                    if (width > maxWidth) {
-                      height = (height * maxWidth) / width;
-                      width = maxWidth;
-                    }
-                  } else {
-                    if (height > maxHeight) {
-                      width = (width * maxHeight) / height;
-                      height = maxHeight;
-                    }
-                  }
-
-                  canvas.width = width;
-                  canvas.height = height;
-                  const ctx = canvas.getContext('2d');
-                  ctx.drawImage(img, 0, 0, width, height);
-
-                  // Convert to blob with compression
-                  canvas.toBlob((blob) => {
-                    if (blob) {
-                      resolve(blob);
-                    } else {
-                      reject(new Error('Failed to compress image'));
-                    }
-                  }, 'image/jpeg', 0.8); // 80% quality
-                };
-                img.onerror = reject;
-                img.src = URL.createObjectURL(employeeData.imageFile);
-              });
-
-              console.log('📦 Original file size:', employeeData.imageFile.size, 'bytes');
-              console.log('📦 Compressed file size:', compressedImage.size, 'bytes');
-
-              // Convert compressed blob to File object for Monday.com API
-              const compressedFile = new File([compressedImage], employeeData.imageFile.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now()
-              });
-
-              // Use Monday.com's add_file_to_column mutation with File variable
-              // Monday.com API requires multipart/form-data with File type
-              const fileUploadMutation = `
-                mutation ($file: File!) {
-                  add_file_to_column (
-                    item_id: ${itemId},
-                    column_id: "${columnMappings.image}",
-                    file: $file
-                  ) {
-                    id
-                    url
-                  }
-                }
-              `;
-
-              console.log('📤 Uploading image file to column:', columnMappings.image);
-              console.log('📝 File name:', compressedFile.name);
-              console.log('📦 File size:', compressedFile.size, 'bytes');
-              console.log('📦 File type:', compressedFile.type);
-              
-              // Monday.com SDK should handle File type automatically
-              const uploadResponse = await monday.api(fileUploadMutation, {
-                variables: {
-                  file: compressedFile
-                }
-              });
-              console.log('📡 File upload response:', uploadResponse);
-
-              if (uploadResponse?.data?.add_file_to_column?.id) {
-                console.log('✅ Image uploaded successfully to Monday.com');
-                console.log('📸 File ID:', uploadResponse.data.add_file_to_column.id);
-                console.log('📸 File URL:', uploadResponse.data.add_file_to_column.url);
-              } else {
-                console.warn('⚠️ Image upload failed - no ID in response');
-                console.warn('⚠️ Response:', uploadResponse);
-              }
-            } catch (imageError) {
-              console.error('❌ Image upload error:', imageError);
-              console.error('❌ Error message:', imageError.message);
-              if (imageError.graphQLErrors) {
-                console.error('❌ GraphQL errors:', imageError.graphQLErrors);
-              }
-            }
-          } else {
-            console.warn('⚠️ Image file provided but no image column mapping found');
-            console.warn('⚠️ Available column mappings:', Object.keys(columnMappings));
-            console.warn('⚠️ Column mappings object:', columnMappings);
-          }
-      }
-
       // Now try to update with column data if we have mappings
       console.log('📝 Step 2: Checking for column mappings and data to update');
       console.log('🎯 Current column mappings:', columnMappings);
@@ -2835,6 +2490,15 @@ function App() {
         managerId: employeeData.managerId
       });
 
+      // Debug: Show what column types we're working with
+      console.log('🔧 Column type analysis:');
+      Object.entries(columnMappings).forEach(([field, columnId]) => {
+        if (columnId) {
+          // Note: We can't access column types here, but we can show the mapping
+          console.log(`   ${field}: ${columnId}`);
+        }
+      });
+
       // Position column
       if (employeeData.position && columnMappings.position) {
         columnValues[columnMappings.position] = employeeData.position;
@@ -2843,10 +2507,8 @@ function App() {
         console.log('❌ Position not added - position:', `"${employeeData.position}"`, 'mapping:', columnMappings.position);
       }
 
-      // Department column - skip if it's a dropdown and value doesn't exist in options
+      // Department column
       if (employeeData.department && columnMappings.department) {
-        // For dropdown columns, we can't validate options easily, so we'll try to add it
-        // If it fails, the error will be caught and handled
         columnValues[columnMappings.department] = employeeData.department;
         console.log('✅ Added department:', employeeData.department, 'to column', columnMappings.department);
       } else {
@@ -2854,7 +2516,6 @@ function App() {
       }
 
       // Email column
-      console.log('📧 Processing email - employeeData.email:', `"${employeeData.email}"`, 'columnMappings.email:', columnMappings.email);
       if (employeeData.email && columnMappings.email) {
         columnValues[columnMappings.email] = employeeData.email;
         console.log('✅ Added email:', employeeData.email, 'to column', columnMappings.email);
@@ -2862,15 +2523,10 @@ function App() {
         console.log('❌ Email not added - email:', `"${employeeData.email}"`, 'mapping:', columnMappings.email);
       }
 
-      // Phone column - format for Monday.com with country flag
+      // Phone column
       if (employeeData.phone && columnMappings.phone) {
-        const formattedPhone = formatPhoneForMonday(employeeData.phone);
-        if (formattedPhone) {
-          columnValues[columnMappings.phone] = formattedPhone;
-          console.log('✅ Added phone:', formattedPhone.phone, 'with country:', formattedPhone.countryShortName, 'to column', columnMappings.phone);
-        } else {
-          console.log('❌ Phone formatting failed for:', employeeData.phone);
-        }
+        columnValues[columnMappings.phone] = employeeData.phone;
+        console.log('✅ Added phone:', employeeData.phone, 'to column', columnMappings.phone);
       } else {
         console.log('❌ Phone not added - phone:', `"${employeeData.phone}"`, 'mapping:', columnMappings.phone);
       }
@@ -2889,53 +2545,16 @@ function App() {
         }
 
         if (manager) {
-          // For dropdown columns, validate that the manager name is a known employee name
-          // This helps prevent invalid dropdown values
-          const allEmployeeNames = employees.map(emp => emp.name);
-          if (allEmployeeNames.includes(manager.name)) {
-            columnValues[columnMappings.manager] = manager.name;
-            console.log('✅ Added manager:', manager.name, 'to column', columnMappings.manager);
-          } else {
-            console.warn('⚠️ Manager name not found in employee list:', manager.name, '- available names:', allEmployeeNames.slice(0, 5));
-            console.log('⏭️ Skipping manager mapping due to invalid dropdown value');
-          }
+          columnValues[columnMappings.manager] = manager.name;
+          console.log('✅ Added manager:', manager.name, 'to column', columnMappings.manager);
         } else {
           console.log('❌ Manager not found for ID:', employeeData.managerId, '- available employee IDs:', employees.slice(0, 5).map(emp => emp.id));
+          // Still add the mapping with a placeholder or skip
           console.log('⚠️ Manager lookup failed - skipping manager mapping');
         }
       } else {
         console.log('❌ Manager not added - managerId:', employeeData.managerId, 'mapping:', columnMappings.manager);
       }
-
-      // Custom fields - sync to Monday.com
-      const customFields = JSON.parse(localStorage.getItem('customFields') || '[]');
-      customFields.forEach(customField => {
-        const fieldValue = employeeData[customField.name];
-        const fieldColumnId = columnMappings[customField.name];
-        
-        if (fieldValue && fieldColumnId) {
-          // Format value based on field type
-          if (customField.type === 'email') {
-            columnValues[fieldColumnId] = {
-              email: fieldValue,
-              text: fieldValue
-            };
-          } else if (customField.type === 'phone') {
-            const formattedPhone = formatPhoneForMonday(fieldValue);
-            if (formattedPhone) {
-              columnValues[fieldColumnId] = formattedPhone;
-            } else {
-              columnValues[fieldColumnId] = fieldValue;
-            }
-          } else {
-            // Text, number, date, dropdown - use plain value
-            columnValues[fieldColumnId] = fieldValue;
-          }
-          console.log(`✅ Added custom field "${customField.name}":`, fieldValue, 'to column', fieldColumnId);
-        } else if (fieldValue && !fieldColumnId) {
-          console.log(`⚠️ Custom field "${customField.name}" has value but no column mapping found`);
-        }
-      });
 
       console.log('📋 Column values to update:', columnValues);
       console.log('🔍 Available column mappings:', columnMappings);
@@ -2947,28 +2566,12 @@ function App() {
           // Prepare bulk update data
           const bulkUpdateData = {};
           Object.entries(columnValues).forEach(([columnId, value]) => {
-            // Check if value is already formatted as object (for email or phone custom fields)
-            if (typeof value === 'object' && value !== null) {
-              // Value is already formatted (email: {email, text} or phone: {phone, countryShortName})
-              bulkUpdateData[columnId] = value;
-            } else if (columnId.includes('email')) {
-              // Email columns require JSON format: {"email": "email", "text": "email"}
+            if (columnId.includes('email')) {
+              // Email columns require JSON format: {"email": "email", "text": "name"}
               bulkUpdateData[columnId] = {
                 email: value,
-                text: value  // Display the email address as text
+                text: employeeData.name || value
               };
-            } else if (columnId.includes('phone')) {
-              // Phone columns require JSON format: {"phone": "+1234567890", "countryShortName": "US"}
-              // Try to format if not already formatted
-              const formattedPhone = formatPhoneForMonday(value);
-              if (formattedPhone) {
-                bulkUpdateData[columnId] = formattedPhone;
-              } else {
-                bulkUpdateData[columnId] = value;
-              }
-            } else if (columnId.includes('file')) {
-              // Skip file columns - they are handled separately via add_file_to_column mutation
-              console.log('⏭️ Skipping file column in bulk update:', columnId);
             } else {
               // Text, dropdown, and other columns use plain strings
               bulkUpdateData[columnId] = value;
@@ -3003,83 +2606,6 @@ function App() {
             }
           } catch (bulkError) {
             console.warn('⚠️ Error with bulk update:', bulkError);
-            console.warn('⚠️ Error message:', bulkError.message);
-
-            // If bulk update fails due to dropdown validation, try individual updates
-            if (bulkError.message && (bulkError.message.includes('dropdown label') || bulkError.message.includes('does not exist'))) {
-              console.log('🔄 Bulk update failed due to dropdown validation - trying individual column updates...');
-              
-              // Remove problematic dropdown columns from bulkUpdateData
-              const cleanedBulkData = { ...bulkUpdateData };
-              Object.keys(cleanedBulkData).forEach(columnId => {
-                if (columnId.includes('dropdown')) {
-                  console.log(`⏭️ Removing dropdown column ${columnId} from retry - invalid value`);
-                  delete cleanedBulkData[columnId];
-                }
-              });
-              
-              // Try bulk update again without dropdown columns
-              if (Object.keys(cleanedBulkData).length > 0) {
-                console.log('🔄 Retrying bulk update without dropdown columns...');
-                try {
-                  const retryMutation = `
-                    mutation {
-                      change_multiple_column_values (
-                        item_id: ${itemId},
-                        board_id: ${boardIdToUse},
-                        column_values: "${JSON.stringify(cleanedBulkData).replace(/"/g, '\\"')}"
-                      ) {
-                        id
-                      }
-                    }
-                  `;
-                  
-                  const retryResponse = await monday.api(retryMutation);
-                  if (retryResponse?.data?.change_multiple_column_values?.id) {
-                    console.log('✅ Successfully updated columns (without dropdowns)');
-                  }
-                } catch (retryError) {
-                  console.warn('⚠️ Retry also failed:', retryError.message);
-                }
-              }
-              
-              console.log('🔄 Now trying individual column updates...');
-
-              // Try to update each column individually, skipping invalid dropdown values
-              for (const [columnId, value] of Object.entries(bulkUpdateData)) {
-                try {
-                  // Skip dropdown columns that might have invalid values
-                  if (columnId.includes('dropdown') && bulkError.message && bulkError.message.includes('does not exist')) {
-                    console.log(`⏭️ Skipping dropdown column ${columnId} - invalid value detected`);
-                    continue;
-                  }
-
-                  let formattedValue;
-
-                  // Value is already properly formatted from bulkUpdateData
-                  // For email columns it's an object, for others it's a string
-                  if (typeof value === 'object') {
-                    formattedValue = JSON.stringify(value);
-                  } else {
-                    formattedValue = JSON.stringify(value);
-                  }
-
-                  const individualMutation = `mutation{change_column_value(item_id:${itemId},board_id:${boardIdToUse},column_id:"${columnId}",value:${formattedValue}){id}}`;
-
-                  console.log(`🔄 Trying individual update for column ${columnId} with value: ${formattedValue}`);
-                  const individualResponse = await monday.api(individualMutation);
-                  console.log(`✅ Individual update successful for column ${columnId}`);
-                } catch (individualError) {
-                  // Skip dropdown columns if validation fails
-                  if (individualError.message && individualError.message.includes('dropdown label') && individualError.message.includes('does not exist')) {
-                    console.warn(`⏭️ Skipping dropdown column ${columnId} - invalid dropdown value: ${value}`);
-                  } else {
-                    console.warn(`⚠️ Individual update failed for column ${columnId}:`, individualError.message);
-                  }
-                  // Continue with other columns even if one fails
-                }
-              }
-            }
           }
         } else {
           console.log('⚠️ No column values to update - check if column mappings are working');
@@ -3279,26 +2805,13 @@ function App() {
   };
 
   const addEmployee = async (employeeData) => {
-    console.log('👤 addEmployee called with:', employeeData);
     // Create employee locally first
     const tempId = Date.now();
-    
-    // Handle image file - create preview URL for local display
-    let imageUrl = null;
-    if (employeeData.imageFile) {
-      imageUrl = URL.createObjectURL(employeeData.imageFile);
-      console.log('🖼️ Created image preview URL for local display:', imageUrl);
-    }
-    
     const newEmployee = {
       ...employeeData,
       id: tempId,
-      managerId: employeeData.managerId ? parseInt(employeeData.managerId) : null,
-      image: imageUrl || employeeData.image || null
+      managerId: employeeData.managerId ? parseInt(employeeData.managerId) : null
     };
-
-    // Remove imageFile from employee object (it's not needed in state)
-    delete newEmployee.imageFile;
 
     // Add to local state immediately for UI responsiveness
     setEmployees([...employees, newEmployee]);
@@ -3309,7 +2822,7 @@ function App() {
     if (!isStandaloneMode && boardId) {
       try {
         console.log('🔄 Syncing employee to Monday.com:', employeeData.name);
-        const mondayId = await addEmployeeToMonday(employeeData, boardId, columnMappings);
+        const mondayId = await addEmployeeToMonday(employeeData, boardId);
 
         if (mondayId) {
           // Update the employee with the real Monday.com ID
@@ -3349,38 +2862,17 @@ function App() {
     // Find the original employee to compare changes
     const originalEmployee = employees.find(emp => emp.id === selectedEmployee.id);
 
-    // Handle image file - create preview URL for local display if new image provided
-    let imageUrl = originalEmployee?.image || null;
-    if (employeeData.imageFile) {
-      // If there was a previous image URL, revoke it to free memory
-      if (originalEmployee?.image && originalEmployee.image.startsWith('blob:')) {
-        URL.revokeObjectURL(originalEmployee.image);
-      }
-      imageUrl = URL.createObjectURL(employeeData.imageFile);
-      console.log('🖼️ Created new image preview URL for local display:', imageUrl);
-    }
-
     // Update locally first
     const updatedEmployee = {
       ...employeeData,
       id: selectedEmployee.id,
-      managerId: employeeData.managerId ? parseInt(employeeData.managerId) : null,
-      image: imageUrl || employeeData.image || originalEmployee?.image || null
+      managerId: employeeData.managerId ? parseInt(employeeData.managerId) : null
     };
-
-    // Remove imageFile from employee object (it's not needed in state)
-    delete updatedEmployee.imageFile;
 
     const updatedEmployees = employees.map(emp =>
       emp.id === selectedEmployee.id ? updatedEmployee : emp
     );
-    
-    // Update state immediately for UI responsiveness
     setEmployees(updatedEmployees);
-    
-    // Save to localStorage immediately so changes persist even if Monday.com sync fails
-    localStorage.setItem('employees', JSON.stringify(updatedEmployees));
-    
     setShowForm(false);
     setSelectedEmployee(null);
 
@@ -3404,29 +2896,21 @@ function App() {
           phone: updatedEmployee.phone,
           managerId: updatedEmployee.managerId
         });
-        // Always load column mappings from localStorage to ensure we have the latest mappings
-        const savedColumnMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
-        const currentColumnMappings = { ...columnMappings, ...savedColumnMappings };
-        console.log('📦 Loaded column mappings from localStorage:', savedColumnMappings);
-        console.log('🗺️ Current column mappings (merged):', currentColumnMappings);
+        console.log('🗺️ Column mappings:', columnMappings);
 
         // Identify changed fields
         const changedFields = {};
 
-        // Check if name changed - Monday.com item name can be updated via change_multiple_column_values
         if (updatedEmployee.name !== originalEmployee.name) {
           console.log('📝 Name changed from:', originalEmployee.name, 'to:', updatedEmployee.name);
-          // Add name to changedFields - Monday.com uses "name" as special column ID
-          changedFields['name'] = updatedEmployee.name;
-          console.log('✅ Will update item name in Monday.com');
         }
 
         console.log('🔍 Comparing position:', originalEmployee.position, 'vs', updatedEmployee.position, '- equal?', updatedEmployee.position === originalEmployee.position);
         if (updatedEmployee.position !== originalEmployee.position) {
           console.log('📝 Position changed from:', originalEmployee.position, 'to:', updatedEmployee.position);
-          if (currentColumnMappings.position) {
-            changedFields[currentColumnMappings.position] = updatedEmployee.position;
-            console.log('✅ Will update position column:', currentColumnMappings.position);
+          if (columnMappings.position) {
+            changedFields[columnMappings.position] = updatedEmployee.position;
+            console.log('✅ Will update position column:', columnMappings.position);
           } else {
             console.log('❌ No position column mapping found');
           }
@@ -3435,9 +2919,9 @@ function App() {
         console.log('🔍 Comparing department:', originalEmployee.department, 'vs', updatedEmployee.department, '- equal?', updatedEmployee.department === originalEmployee.department);
         if (updatedEmployee.department !== originalEmployee.department) {
           console.log('📝 Department changed from:', originalEmployee.department, 'to:', updatedEmployee.department);
-          if (currentColumnMappings.department) {
-            changedFields[currentColumnMappings.department] = updatedEmployee.department;
-            console.log('✅ Will update department column:', currentColumnMappings.department);
+          if (columnMappings.department) {
+            changedFields[columnMappings.department] = updatedEmployee.department;
+            console.log('✅ Will update department column:', columnMappings.department);
           } else {
             console.log('❌ No department column mapping found');
           }
@@ -3446,9 +2930,9 @@ function App() {
         console.log('🔍 Comparing email:', originalEmployee.email, 'vs', updatedEmployee.email, '- equal?', updatedEmployee.email === originalEmployee.email);
         if (updatedEmployee.email !== originalEmployee.email) {
           console.log('📝 Email changed from:', originalEmployee.email, 'to:', updatedEmployee.email);
-          if (currentColumnMappings.email) {
-            changedFields[currentColumnMappings.email] = updatedEmployee.email;
-            console.log('✅ Will update email column:', currentColumnMappings.email);
+          if (columnMappings.email) {
+            changedFields[columnMappings.email] = updatedEmployee.email;
+            console.log('✅ Will update email column:', columnMappings.email);
           } else {
             console.log('❌ No email column mapping found');
           }
@@ -3457,16 +2941,9 @@ function App() {
         console.log('🔍 Comparing phone:', originalEmployee.phone, 'vs', updatedEmployee.phone, '- equal?', updatedEmployee.phone === originalEmployee.phone);
         if (updatedEmployee.phone !== originalEmployee.phone) {
           console.log('📝 Phone changed from:', originalEmployee.phone, 'to:', updatedEmployee.phone);
-          if (currentColumnMappings.phone) {
-            // Format phone for Monday.com with country flag
-            const formattedPhone = formatPhoneForMonday(updatedEmployee.phone);
-            if (formattedPhone) {
-              changedFields[currentColumnMappings.phone] = formattedPhone;
-              console.log('✅ Will update phone column:', currentColumnMappings.phone, 'with phone:', formattedPhone.phone, 'country:', formattedPhone.countryShortName);
-            } else {
-              changedFields[currentColumnMappings.phone] = updatedEmployee.phone;
-              console.log('⚠️ Phone formatting failed, using raw value');
-            }
+          if (columnMappings.phone) {
+            changedFields[columnMappings.phone] = updatedEmployee.phone;
+            console.log('✅ Will update phone column:', columnMappings.phone);
           } else {
             console.log('❌ No phone column mapping found');
           }
@@ -3480,199 +2957,13 @@ function App() {
 
           console.log('📝 Manager changed from:', oldManager?.name || 'None', 'to:', newManager?.name || 'None');
 
-          if (newManager?.name !== oldManager?.name && currentColumnMappings.manager) {
-            changedFields[currentColumnMappings.manager] = newManager?.name || '';
-            console.log('✅ Will update manager column:', currentColumnMappings.manager);
-          } else if (currentColumnMappings.manager) {
+          if (newManager?.name !== oldManager?.name && columnMappings.manager) {
+            changedFields[columnMappings.manager] = newManager?.name || '';
+            console.log('✅ Will update manager column:', columnMappings.manager);
+          } else if (columnMappings.manager) {
             console.log('❌ Manager names are the same or no manager column mapping');
           } else {
             console.log('❌ No manager column mapping found');
-          }
-        }
-
-        // Check custom fields for changes
-        const customFields = JSON.parse(localStorage.getItem('customFields') || '[]');
-        console.log('🔍 Checking custom fields for changes. Custom fields:', customFields);
-        console.log('🔍 Available column mappings:', Object.keys(currentColumnMappings));
-        customFields.forEach(customField => {
-          const originalValue = originalEmployee[customField.name] || '';
-          const updatedValue = updatedEmployee[customField.name] || '';
-          const fieldColumnId = currentColumnMappings[customField.name];
-          
-          console.log(`🔍 Custom field "${customField.name}":`, {
-            originalValue,
-            updatedValue,
-            fieldColumnId,
-            hasMapping: !!fieldColumnId,
-            valueChanged: originalValue !== updatedValue
-          });
-
-          if (originalValue !== updatedValue && fieldColumnId) {
-            console.log(`📝 Custom field "${customField.name}" changed from:`, originalValue, 'to:', updatedValue);
-            
-            // Format value based on field type
-            if (customField.type === 'email') {
-              changedFields[fieldColumnId] = {
-                email: updatedValue,
-                text: updatedValue
-              };
-            } else if (customField.type === 'phone') {
-              const formattedPhone = formatPhoneForMonday(updatedValue);
-              if (formattedPhone) {
-                changedFields[fieldColumnId] = formattedPhone;
-              } else {
-                changedFields[fieldColumnId] = updatedValue;
-              }
-            } else {
-              // Text, number, date, dropdown - use plain value
-              changedFields[fieldColumnId] = updatedValue;
-            }
-            console.log(`✅ Will update custom field "${customField.name}" column:`, fieldColumnId, 'with value:', updatedValue);
-          } else if (originalValue !== updatedValue && !fieldColumnId) {
-            console.log(`⚠️ Custom field "${customField.name}" changed but no column mapping found`);
-            console.log(`⚠️ Custom field name: "${customField.name}"`);
-            console.log(`⚠️ Available mappings:`, Object.keys(currentColumnMappings));
-            console.log(`⚠️ Full mappings object:`, currentColumnMappings);
-          }
-        });
-
-        // Handle image upload if image file is provided
-        if (employeeData.imageFile) {
-          console.log('🖼️ Processing image file for update...');
-          console.log('📋 Image file details:', {
-            name: employeeData.imageFile.name,
-            size: employeeData.imageFile.size,
-            type: employeeData.imageFile.type,
-            hasImageMapping: !!currentColumnMappings.image,
-            imageColumnId: currentColumnMappings.image
-          });
-
-          if (currentColumnMappings.image) {
-            console.log('🖼️ Uploading new image file to Monday.com...');
-            try {
-              // First, clear all existing files from the column to replace the old image
-              console.log('🗑️ Clearing old image files from Monday.com column...');
-              const clearFilesMutation = `
-                mutation {
-                  change_column_value (
-                    item_id: ${selectedEmployee.id},
-                    board_id: ${boardId},
-                    column_id: "${columnMappings.image}",
-                    value: "{\\"clear_all\\": true}"
-                  ) {
-                    id
-                  }
-                }
-              `;
-
-              try {
-                const clearResponse = await monday.api(clearFilesMutation);
-                console.log('🗑️ Clear files response:', clearResponse);
-                if (clearResponse?.data?.change_column_value?.id) {
-                  console.log('✅ Old image files cleared successfully');
-                }
-              } catch (clearError) {
-                console.warn('⚠️ Error clearing old files (may not exist):', clearError.message);
-                // Continue with upload even if clear fails
-              }
-
-              // Compress/resize image before upload to reduce size
-              const compressedImage = await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => {
-                  const canvas = document.createElement('canvas');
-                  const maxWidth = 800;
-                  const maxHeight = 800;
-                  let width = img.width;
-                  let height = img.height;
-
-                  // Calculate new dimensions
-                  if (width > height) {
-                    if (width > maxWidth) {
-                      height = (height * maxWidth) / width;
-                      width = maxWidth;
-                    }
-                  } else {
-                    if (height > maxHeight) {
-                      width = (width * maxHeight) / height;
-                      height = maxHeight;
-                    }
-                  }
-
-                  canvas.width = width;
-                  canvas.height = height;
-                  const ctx = canvas.getContext('2d');
-                  ctx.drawImage(img, 0, 0, width, height);
-
-                  // Convert to blob with compression
-                  canvas.toBlob((blob) => {
-                    if (blob) {
-                      resolve(blob);
-                    } else {
-                      reject(new Error('Failed to compress image'));
-                    }
-                  }, 'image/jpeg', 0.8); // 80% quality
-                };
-                img.onerror = reject;
-                img.src = URL.createObjectURL(employeeData.imageFile);
-              });
-
-              console.log('📦 Original file size:', employeeData.imageFile.size, 'bytes');
-              console.log('📦 Compressed file size:', compressedImage.size, 'bytes');
-
-              // Convert compressed blob to File object for Monday.com API
-              const compressedFile = new File([compressedImage], employeeData.imageFile.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now()
-              });
-
-              // Use Monday.com's add_file_to_column mutation with File variable
-              // Monday.com API requires multipart/form-data with File type
-              const fileUploadMutation = `
-                mutation ($file: File!) {
-                  add_file_to_column (
-                    item_id: ${selectedEmployee.id},
-                    column_id: "${columnMappings.image}",
-                    file: $file
-                  ) {
-                    id
-                    url
-                  }
-                }
-              `;
-
-              console.log('📤 Uploading image file to column:', columnMappings.image);
-              console.log('📝 File name:', compressedFile.name);
-              console.log('📦 File size:', compressedFile.size, 'bytes');
-              console.log('📦 File type:', compressedFile.type);
-              
-              // Monday.com SDK should handle File type automatically
-              const uploadResponse = await monday.api(fileUploadMutation, {
-                variables: {
-                  file: compressedFile
-                }
-              });
-              console.log('📡 File upload response:', uploadResponse);
-
-              if (uploadResponse?.data?.add_file_to_column?.id) {
-                console.log('✅ Image uploaded successfully to Monday.com');
-                console.log('📸 File ID:', uploadResponse.data.add_file_to_column.id);
-                console.log('📸 File URL:', uploadResponse.data.add_file_to_column.url);
-              } else {
-                console.warn('⚠️ Image upload failed - no ID in response');
-                console.warn('⚠️ Response:', uploadResponse);
-              }
-            } catch (imageError) {
-              console.error('❌ Image upload error:', imageError);
-              console.error('❌ Error message:', imageError.message);
-              if (imageError.graphQLErrors) {
-                console.error('❌ GraphQL errors:', imageError.graphQLErrors);
-              }
-            }
-          } else {
-            console.warn('⚠️ Image file provided but no image column mapping found');
-            console.warn('⚠️ Available column mappings:', Object.keys(columnMappings));
-            console.warn('⚠️ Column mappings object:', columnMappings);
           }
         }
 
@@ -3684,26 +2975,12 @@ function App() {
           // Prepare bulk update data
           const bulkUpdateData = {};
           Object.entries(changedFields).forEach(([columnId, value]) => {
-            // Check if value is already formatted as object (for email or phone custom fields)
-            if (typeof value === 'object' && value !== null) {
-              // Value is already formatted (email: {email, text} or phone: {phone, countryShortName})
-              bulkUpdateData[columnId] = value;
-            } else if (columnId.includes('email')) {
-              // Email columns require JSON format: {"email": "email", "text": "email"}
-              // The text field should contain the email address, not the name
+            if (columnId.includes('email')) {
+              // Email columns require JSON format: {"email": "email", "text": "name"}
               bulkUpdateData[columnId] = {
                 email: value,
-                text: value // Use email address as text, not name
+                text: updatedEmployee.name || value
               };
-            } else if (columnId.includes('phone')) {
-              // Phone columns require JSON format: {"phone": "+1234567890", "countryShortName": "US"}
-              // Try to format if not already formatted
-              const formattedPhone = formatPhoneForMonday(value);
-              if (formattedPhone) {
-                bulkUpdateData[columnId] = formattedPhone;
-              } else {
-                bulkUpdateData[columnId] = value;
-              }
             } else {
               // Text, dropdown, and other columns use plain strings
               bulkUpdateData[columnId] = value;
@@ -3742,13 +3019,21 @@ function App() {
           }
         }
 
+        // Note: Item names in Monday.com cannot be updated after creation
+        // The item_name parameter is only used during creation
+        if (updatedEmployee.name !== originalEmployee.name) {
+          console.log('ℹ️ Name changed but cannot be updated in Monday.com (names are set during creation only)');
+        }
+
         console.log('✅ Employee update synced to Monday.com');
 
       } catch (error) {
         console.error('❌ Error syncing employee update to Monday.com:', error);
-        // Even if sync fails, the local state is already updated and saved
       }
     }
+
+    // Save to localStorage
+    localStorage.setItem('employees', JSON.stringify(updatedEmployees));
   };
 
   const confirmDeleteEmployee = (employeeId) => {
@@ -4139,8 +3424,6 @@ function App() {
           onTabChange={handleSettingsTabChange}
           designSettings={designSettings}
           onDesignSettingsChange={setDesignSettings}
-          boardId={boardId}
-          isStandaloneMode={isStandaloneMode}
         />
 
         {/* Employee View Popup */}

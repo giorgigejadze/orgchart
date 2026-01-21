@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Palette, List, Save, Edit, ChevronUp, ChevronDown } from 'lucide-react';
 import './Settings.css';
+import mondaySdk from "monday-sdk-js";
+const monday = mondaySdk();
 
-const Settings = ({ isOpen, onClose, activeSection, onTabChange, designSettings, onDesignSettingsChange }) => {
+const Settings = ({ isOpen, onClose, activeSection, onTabChange, designSettings, onDesignSettingsChange, boardId, isStandaloneMode }) => {
   const [customFields, setCustomFields] = useState([]);
 
   // Use designSettings from props, with fallback to defaults
@@ -138,17 +140,97 @@ const Settings = ({ isOpen, onClose, activeSection, onTabChange, designSettings,
     setRequiredFields(updatedRequiredFields);
   }, [customFields]);
 
-  const addCustomField = () => {
+  // Map custom field types to Monday.com column types
+  const mapFieldTypeToMondayColumnType = (fieldType) => {
+    const typeMap = {
+      'text': 'text',
+      'email': 'email',
+      'phone': 'phone',
+      'number': 'numbers',
+      'date': 'date',
+      'dropdown': 'dropdown'
+    };
+    return typeMap[fieldType] || 'text';
+  };
+
+  const addCustomField = async () => {
     if (isFieldReadyToAdd()) {
       
       const newFieldWithId = { ...newField, id: Date.now() };
-      setCustomFields([...customFields, newFieldWithId]);
+      
+      // Add to Monday.com board if connected
+      if (!isStandaloneMode && boardId) {
+        try {
+          console.log('📋 Adding custom field to Monday.com:', newField.name, 'type:', newField.type);
+          
+          const mondayColumnType = mapFieldTypeToMondayColumnType(newField.type);
+          
+          // Prepare column creation mutation
+          // Note: column_type is an enum, not a string, so no quotes needed
+          let createColumnMutation = `
+            mutation {
+              create_column(
+                board_id: ${boardId},
+                title: "${newField.name.replace(/"/g, '\\"')}",
+                column_type: ${mondayColumnType}
+              ) {
+                id
+                title
+                type
+              }
+            }
+          `;
+
+          // For dropdown columns, add options if available
+          if (newField.type === 'dropdown' && newField.options && newField.options.length > 0) {
+            // Note: Dropdown options are set after column creation using change_column_value
+            // We'll create the column first, then update it with options if needed
+            console.log('📋 Dropdown field with options:', newField.options);
+          }
+
+          const response = await monday.api(createColumnMutation);
+          console.log('✅ Column created in Monday.com:', response);
+
+          if (response?.data?.create_column?.id) {
+            const newColumnId = response.data.create_column.id;
+            console.log('✅ Successfully added column to Monday.com:', newColumnId);
+            
+            // Save column mapping to localStorage
+            const savedColumnMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
+            savedColumnMappings[newField.name] = newColumnId;
+            localStorage.setItem('columnMappings', JSON.stringify(savedColumnMappings));
+            console.log('💾 Saved custom field column mapping:', newField.name, '->', newColumnId);
+            
+            // If dropdown with options, update column settings
+            if (newField.type === 'dropdown' && newField.options && newField.options.length > 0) {
+              // Note: Setting dropdown options requires additional API calls
+              // For now, we'll just create the column and options can be set manually in Monday.com
+              console.log('ℹ️ Dropdown column created. Options can be set in Monday.com UI.');
+            }
+          } else {
+            console.warn('⚠️ Column creation response missing ID:', response);
+          }
+        } catch (error) {
+          console.error('❌ Error adding column to Monday.com:', error);
+          console.error('❌ Error details:', error.message);
+          // Continue with local field addition even if Monday.com sync fails
+        }
+      }
+
+      // Add to local state
+      const updatedCustomFields = [...customFields, newFieldWithId];
+      setCustomFields(updatedCustomFields);
 
       // Update required fields to sync with the new custom field's required property
-      setRequiredFields(prev => ({
-        ...prev,
+      const updatedRequiredFields = {
+        ...requiredFields,
         [newField.name]: newField.required
-      }));
+      };
+      setRequiredFields(updatedRequiredFields);
+
+      // Save to localStorage immediately
+      localStorage.setItem('customFields', JSON.stringify(updatedCustomFields));
+      localStorage.setItem('requiredFields', JSON.stringify(updatedRequiredFields));
 
       setNewField({ name: '', type: 'text', required: false, options: [] });
     }

@@ -4,6 +4,84 @@ import Papa from 'papaparse';
 import { exportToPDF, exportToCSV, importFromCSV } from '../utils/exportUtils';
 import './ImportExport.css';
 
+// Function to intelligently map CSV columns to employee fields
+const mapCSVColumns = (headers, sampleData) => {
+  const mapping = {
+    name: null,
+    position: null,
+    department: null,
+    email: null,
+    phone: null,
+    manager: null
+  };
+
+  // Common field name variations
+  const nameVariations = ['name', 'fullname', 'full name', 'employee name', 'სახელი', 'name', 'Name', 'Full Name', 'Employee Name', 'სახელი'];
+  const positionVariations = ['position', 'title', 'job title', 'role', 'პოზიცია', 'position', 'job', 'Position', 'Title', 'Job Title', 'Role', 'პოზიცია'];
+  const departmentVariations = ['department', 'dept', 'division', 'დეპარტამენტი', 'department', 'Department', 'Dept', 'Division', 'დეპარტამენტი'];
+  const emailVariations = ['email', 'e-mail', 'email address', 'ელფოსტა', 'email', 'Email', 'E-mail', 'Email Address', 'ელფოსტა'];
+  const phoneVariations = ['phone', 'telephone', 'phone number', 'mobile', 'ტელეფონი', 'phone', 'Phone', 'Telephone', 'Phone Number', 'Mobile', 'ტელეფონი'];
+  const managerVariations = ['manager', 'supervisor', 'boss', 'მენეჯერი', 'manager', 'Manager', 'Supervisor', 'Boss', 'მენეჯერი'];
+
+  // First pass: exact matches with common variations
+  headers.forEach((header, index) => {
+    const lowerHeader = header.toLowerCase().trim();
+
+    if (nameVariations.some(v => lowerHeader.includes(v)) && !mapping.name) {
+      mapping.name = header;
+    } else if (positionVariations.some(v => lowerHeader.includes(v)) && !mapping.position) {
+      mapping.position = header;
+    } else if (departmentVariations.some(v => lowerHeader.includes(v)) && !mapping.department) {
+      mapping.department = header;
+    } else if (emailVariations.some(v => lowerHeader.includes(v)) && !mapping.email) {
+      mapping.email = header;
+    } else if (phoneVariations.some(v => lowerHeader.includes(v)) && !mapping.phone) {
+      mapping.phone = header;
+    } else if (managerVariations.some(v => lowerHeader.includes(v)) && !mapping.manager) {
+      mapping.manager = header;
+    }
+  });
+
+  // Second pass: detect by data patterns if fields are still unmapped
+  if (sampleData && sampleData.length > 0) {
+    headers.forEach((header, index) => {
+      if (mapping.name && mapping.position && mapping.department && mapping.email && mapping.phone && mapping.manager) {
+        return; // All fields mapped
+      }
+
+      const sampleValues = sampleData.slice(0, 3).map(row => row[header]).filter(val => val && val.trim());
+
+      if (sampleValues.length === 0) return;
+
+      // Check for email pattern
+      if (!mapping.email && sampleValues.every(val => /\S+@\S+\.\S+/.test(val))) {
+        mapping.email = header;
+        return;
+      }
+
+      // Check for phone pattern
+      if (!mapping.phone && sampleValues.every(val => /^[\+]?[\d\s\-\(\)]{7,}$/.test(val))) {
+        mapping.phone = header;
+        return;
+      }
+
+      // Check for manager references (names that appear in other rows)
+      if (!mapping.manager) {
+        const allNames = sampleData.map(row => row[mapping.name || 'name'] || row['Name'] || '').filter(n => n);
+        const hasManagerRefs = sampleValues.some(val =>
+          allNames.some(name => name && val.includes(name))
+        );
+        if (hasManagerRefs) {
+          mapping.manager = header;
+          return;
+        }
+      }
+    });
+  }
+
+  return mapping;
+};
+
 const ImportExport = ({ employees, onImportEmployees, onResetToSample, isDropdown = false, orgChartRef = null }) => {
   const fileInputRef = useRef(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -81,11 +159,22 @@ const ImportExport = ({ employees, onImportEmployees, onResetToSample, isDropdow
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
+          // Load custom fields and field settings from localStorage
+          const customFields = JSON.parse(localStorage.getItem('customFields') || '[]');
+          const defaultFields = JSON.parse(localStorage.getItem('defaultFields') || '{}');
+
+          // Create column mapping for preview
+          const headers = results.meta.fields || [];
+          const sampleData = results.data.slice(0, 3); // Use first 3 rows for mapping
+          const columnMapping = mapCSVColumns(headers, sampleData);
+
           const previewData = results.data.slice(0, 5); // Show first 5 rows
           setImportPreview({
             totalRows: results.data.length,
             preview: previewData,
-            file: file
+            file: file,
+            columnMapping: columnMapping,
+            headers: headers
           });
           setShowImportModal(true);
         },
@@ -235,34 +324,50 @@ const ImportExport = ({ employees, onImportEmployees, onResetToSample, isDropdow
                       <thead>
                         <tr>
                           {/* Default fields */}
-                          {defaultFields.name !== false && <th>Name</th>}
-                          {defaultFields.position !== false && <th>Position</th>}
-                          {defaultFields.department !== false && <th>Department</th>}
-                          {defaultFields.email !== false && <th>Email</th>}
-                          {defaultFields.phone !== false && <th>Phone</th>}
+                          {defaultFields.name !== false && importPreview?.columnMapping?.name && <th>Name ({importPreview.columnMapping.name})</th>}
+                          {defaultFields.position !== false && importPreview?.columnMapping?.position && <th>Position ({importPreview.columnMapping.position})</th>}
+                          {defaultFields.department !== false && importPreview?.columnMapping?.department && <th>Department ({importPreview.columnMapping.department})</th>}
+                          {defaultFields.email !== false && importPreview?.columnMapping?.email && <th>Email ({importPreview.columnMapping.email})</th>}
+                          {defaultFields.phone !== false && importPreview?.columnMapping?.phone && <th>Phone ({importPreview.columnMapping.phone})</th>}
+                          {defaultFields.managerId !== false && importPreview?.columnMapping?.manager && <th>Manager ({importPreview.columnMapping.manager})</th>}
                           {/* Custom fields */}
                           {customFields.map(field =>
                             defaultFields[field.name] !== false && (
                               <th key={field.id}>{field.name}</th>
                             )
                           )}
+                          {/* Unmapped columns */}
+                          {importPreview?.headers?.filter(header =>
+                            !Object.values(importPreview.columnMapping || {}).includes(header) &&
+                            !customFields.some(field => field.name === header)
+                          ).map(header => (
+                            <th key={header} style={{color: '#888'}}>{header} (unmapped)</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
                         {importPreview?.preview.map((row, index) => (
                           <tr key={index}>
                             {/* Default fields */}
-                            {defaultFields.name !== false && <td>{row.Name || row.name || ''}</td>}
-                            {defaultFields.position !== false && <td>{row.Position || row.position || ''}</td>}
-                            {defaultFields.department !== false && <td>{row.Department || row.department || ''}</td>}
-                            {defaultFields.email !== false && <td>{row.Email || row.email || ''}</td>}
-                            {defaultFields.phone !== false && <td>{row.Phone || row.phone || ''}</td>}
+                            {defaultFields.name !== false && importPreview?.columnMapping?.name && <td>{row[importPreview.columnMapping.name] || ''}</td>}
+                            {defaultFields.position !== false && importPreview?.columnMapping?.position && <td>{row[importPreview.columnMapping.position] || ''}</td>}
+                            {defaultFields.department !== false && importPreview?.columnMapping?.department && <td>{row[importPreview.columnMapping.department] || ''}</td>}
+                            {defaultFields.email !== false && importPreview?.columnMapping?.email && <td>{row[importPreview.columnMapping.email] || ''}</td>}
+                            {defaultFields.phone !== false && importPreview?.columnMapping?.phone && <td>{row[importPreview.columnMapping.phone] || ''}</td>}
+                            {defaultFields.managerId !== false && importPreview?.columnMapping?.manager && <td>{row[importPreview.columnMapping.manager] || ''}</td>}
                             {/* Custom fields */}
                             {customFields.map(field =>
                               defaultFields[field.name] !== false && (
                                 <td key={field.id}>{row[field.name] || ''}</td>
                               )
                             )}
+                            {/* Unmapped columns */}
+                            {importPreview?.headers?.filter(header =>
+                              !Object.values(importPreview.columnMapping || {}).includes(header) &&
+                              !customFields.some(field => field.name === header)
+                            ).map(header => (
+                              <td key={header} style={{color: '#888'}}>{row[header] || ''}</td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>
@@ -487,34 +592,50 @@ const ImportExport = ({ employees, onImportEmployees, onResetToSample, isDropdow
                     <thead>
                       <tr>
                         {/* Default fields */}
-                        {defaultFields.name !== false && <th>Name</th>}
-                        {defaultFields.position !== false && <th>Position</th>}
-                        {defaultFields.department !== false && <th>Department</th>}
-                        {defaultFields.email !== false && <th>Email</th>}
-                        {defaultFields.phone !== false && <th>Phone</th>}
+                        {defaultFields.name !== false && importPreview?.columnMapping?.name && <th>Name ({importPreview.columnMapping.name})</th>}
+                        {defaultFields.position !== false && importPreview?.columnMapping?.position && <th>Position ({importPreview.columnMapping.position})</th>}
+                        {defaultFields.department !== false && importPreview?.columnMapping?.department && <th>Department ({importPreview.columnMapping.department})</th>}
+                        {defaultFields.email !== false && importPreview?.columnMapping?.email && <th>Email ({importPreview.columnMapping.email})</th>}
+                        {defaultFields.phone !== false && importPreview?.columnMapping?.phone && <th>Phone ({importPreview.columnMapping.phone})</th>}
+                        {defaultFields.managerId !== false && importPreview?.columnMapping?.manager && <th>Manager ({importPreview.columnMapping.manager})</th>}
                         {/* Custom fields */}
                         {customFields.map(field =>
                           defaultFields[field.name] !== false && (
                             <th key={field.id}>{field.name}</th>
                           )
                         )}
+                        {/* Unmapped columns */}
+                        {importPreview?.headers?.filter(header =>
+                          !Object.values(importPreview.columnMapping || {}).includes(header) &&
+                          !customFields.some(field => field.name === header)
+                        ).map(header => (
+                          <th key={header} style={{color: '#888'}}>{header} (unmapped)</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {importPreview?.preview.map((row, index) => (
                         <tr key={index}>
                           {/* Default fields */}
-                          {defaultFields.name !== false && <td>{row.Name || row.name || ''}</td>}
-                          {defaultFields.position !== false && <td>{row.Position || row.position || ''}</td>}
-                          {defaultFields.department !== false && <td>{row.Department || row.department || ''}</td>}
-                          {defaultFields.email !== false && <td>{row.Email || row.email || ''}</td>}
-                          {defaultFields.phone !== false && <td>{row.Phone || row.phone || ''}</td>}
+                          {defaultFields.name !== false && importPreview?.columnMapping?.name && <td>{row[importPreview.columnMapping.name] || ''}</td>}
+                          {defaultFields.position !== false && importPreview?.columnMapping?.position && <td>{row[importPreview.columnMapping.position] || ''}</td>}
+                          {defaultFields.department !== false && importPreview?.columnMapping?.department && <td>{row[importPreview.columnMapping.department] || ''}</td>}
+                          {defaultFields.email !== false && importPreview?.columnMapping?.email && <td>{row[importPreview.columnMapping.email] || ''}</td>}
+                          {defaultFields.phone !== false && importPreview?.columnMapping?.phone && <td>{row[importPreview.columnMapping.phone] || ''}</td>}
+                          {defaultFields.managerId !== false && importPreview?.columnMapping?.manager && <td>{row[importPreview.columnMapping.manager] || ''}</td>}
                           {/* Custom fields */}
                           {customFields.map(field =>
                             defaultFields[field.name] !== false && (
                               <td key={field.id}>{row[field.name] || ''}</td>
                             )
                           )}
+                          {/* Unmapped columns */}
+                          {importPreview?.headers?.filter(header =>
+                            !Object.values(importPreview.columnMapping || {}).includes(header) &&
+                            !customFields.some(field => field.name === header)
+                          ).map(header => (
+                            <td key={header} style={{color: '#888'}}>{row[header] || ''}</td>
+                          ))}
                         </tr>
                       ))}
                     </tbody>

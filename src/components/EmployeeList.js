@@ -57,21 +57,22 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
       // Position filter
       const matchesPosition = filterPosition.length === 0 || filterPosition.includes(emp.position);
 
-      // Manager filter
-      const matchesManager = filterManager.length === 0 || filterManager.includes(emp.managerId);
+      // Manager filter hidden from client view
+      // const matchesManager = filterManager.length === 0 || filterManager.includes(emp.managerId);
 
-      return matchesSearch && matchesPosition && matchesManager;
+      return matchesSearch && matchesPosition;
     })
     .sort((a, b) => {
       let aValue = a[sortBy];
       let bValue = b[sortBy];
       
-      if (sortBy === 'managerId') {
-        const aManager = employees.find(emp => emp.id === a.managerId);
-        const bManager = employees.find(emp => emp.id === b.managerId);
-        aValue = aManager ? aManager.name : 'No Manager';
-        bValue = bManager ? bManager.name : 'No Manager';
-      }
+      // Manager sorting hidden from client view
+      // if (sortBy === 'managerId') {
+      //   const aManager = employees.find(emp => emp.id === a.managerId);
+      //   const bManager = employees.find(emp => emp.id === b.managerId);
+      //   aValue = aManager ? aManager.name : 'No Manager';
+      //   bValue = bManager ? bManager.name : 'No Manager';
+      // }
       
       if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase();
@@ -126,8 +127,8 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
   };
 
   const hasActiveFilters = searchTerm || 
-                          filterPosition.length > 0 || 
-                          filterManager.length > 0;
+                          filterPosition.length > 0;
+                          // filterManager.length > 0; // Manager filter hidden from client view
 
   // Determine which custom fields to show
   const visibleCustomFields = showAllCustomFields ? customFields : customFields.slice(0, 3);
@@ -206,7 +207,8 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
               </div>
             </div>
 
-            <div className="filter-section">
+            {/* Manager filter hidden from client view - only available in edit modal */}
+            {/* <div className="filter-section">
               <h4>Managers</h4>
               <div className="filter-chips">
                 {managers.map(managerId => {
@@ -222,7 +224,7 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
                   );
                 })}
               </div>
-            </div>
+            </div> */}
           </div>
         )}
         
@@ -242,7 +244,8 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
                   <button onClick={() => setFilterPosition([])}><X size={12} /></button>
                 </span>
               )}
-              {filterManager.length > 0 && (
+              {/* Manager filter hidden from client view */}
+              {/* {filterManager.length > 0 && (
                 <span className="active-filter">
                   Managers: {filterManager.map(id => {
                     const manager = employees.find(emp => emp.id === id);
@@ -250,7 +253,7 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
                   }).join(', ')}
                   <button onClick={() => setFilterManager([])}><X size={12} /></button>
                 </span>
-              )}
+              )} */}
             </div>
           )}
         </div>
@@ -309,12 +312,7 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
                   </button>
                 </th>
               )}
-              <th onClick={() => handleSort('managerId')} className="sortable">
-                Manager
-                {sortBy === 'managerId' && (
-                  <span className="sort-indicator">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                )}
-              </th>
+              {/* Manager column hidden from client view - only available in edit modal */}
               <th>Actions</th>
             </tr>
           </thead>
@@ -374,7 +372,8 @@ const EmployeeList = ({ employees, onEditEmployee, onDeleteEmployee, onViewEmplo
                     </button>
                   </td>
                 )}
-                <td>{getManagerName(employee.managerId)}</td>
+                {/* Manager column hidden from client view - only available in edit modal */}
+                {/* <td>{getManagerName(employee.managerId)}</td> */}
                 <td className="actions">
                   <button
                     className="action-btn view-btn"
