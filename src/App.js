@@ -888,32 +888,15 @@ function App() {
 
               // Update the column settings
               try {
-                const updateQuery = `
-                  mutation {
-                    change_column_settings(
-                      board_id: ${boardId},
-                      column_id: "${departmentColumn.id}",
-                      settings: "${JSON.stringify({ labels: updatedLabels }).replace(/"/g, '\\"')}"
-                    ) {
-                      id
-                    }
-                  }
-                `;
+                // Update local state only (change_column_settings doesn't exist in Monday.com API)
+                // Labels will be created automatically when updating items with create_labels_if_missing: true
+                console.log('✅ Department dropdown auto-updated with new department names (local state only)');
+                console.log('📋 Department raw labels (updated):', updatedLabels);
 
-                console.log('📤 Updating department dropdown settings...');
-                const updateResponse = await monday.api(updateQuery);
-
-                if (updateResponse?.data?.change_column_settings?.id) {
-                  console.log('✅ Department dropdown auto-updated with new department names');
-                  console.log('📋 Department raw labels (updated):', updatedLabels);
-
-                  // Update local state with new options
-                  const updatedOptions = Object.values(updatedLabels);
-                  setDepartmentDropdownOptions(updatedOptions);
-                  console.log('📋 Updated local department dropdown options:', updatedOptions);
-                } else {
-                  console.log('❌ Failed to update department dropdown settings');
-                }
+                // Update local state with new options
+                const updatedOptions = Object.values(updatedLabels);
+                setDepartmentDropdownOptions(updatedOptions);
+                console.log('📋 Updated local department dropdown options:', updatedOptions);
               } catch (error) {
                 console.log('❌ Error updating department dropdown:', error);
               }
@@ -977,33 +960,15 @@ function App() {
 
                 // Update the column settings
                 try {
-                  const updateQuery = `
-                    mutation {
-                      change_column_settings(
-                        board_id: ${boardId},
-                        column_id: "${managerColumn.id}",
-                        settings: "${JSON.stringify({ labels: updatedLabels }).replace(/"/g, '\\"')}"
-                      ) {
-                        id
-                      }
-                    }
-                  `;
+                  // Update local state only (change_column_settings doesn't exist in Monday.com API)
+                  // Labels will be created automatically when updating items with create_labels_if_missing: true
+                  console.log('✅ Manager dropdown auto-updated with new employee names (local state only)');
 
-                  console.log('📤 Updating manager dropdown settings...');
-                  const updateResponse = await monday.api(updateQuery);
-
-                  if (updateResponse?.data?.change_column_settings?.id) {
-                    console.log('✅ Manager dropdown auto-updated with new employee names');
-
-                    // Update local state with new options
-                    const updatedOptions = Object.values(updatedLabels);
-                    setManagerDropdownOptions(updatedOptions);
-                    console.log('📋 Updated local manager dropdown options:', updatedOptions);
-                    return true; // Success
-                  } else {
-                    console.log('❌ Failed to update manager dropdown settings');
-                    return false; // Failed
-                  }
+                  // Update local state with new options
+                  const updatedOptions = Object.values(updatedLabels);
+                  setManagerDropdownOptions(updatedOptions);
+                  console.log('📋 Updated local manager dropdown options:', updatedOptions);
+                  return true; // Success
                 } catch (error) {
                   console.log('❌ Error updating manager dropdown:', error);
                   return false; // Failed
@@ -1018,95 +983,60 @@ function App() {
           return false; // No manager column or options
         };
 
-        // Auto-sync manager dropdown with employee names
-        if (managerOptions.length > 0) {
-          // Find the manager column details
-          const managerColumns = board.columns?.filter(col => {
-            const columnTitle = col.title?.toLowerCase() || '';
-            return (col.type === 'dropdown' || col.type === 'status') &&
-                   (columnTitle.includes('manager') || columnTitle.includes('მენეჯერი') ||
-                    columnTitle.includes('supervisor') || columnTitle.includes('boss'));
-          });
-
-          // Prioritize columns with valid settings, then any manager column
-          const managerColumn = managerColumns?.find(col => {
+        // Auto-sync manager dropdown with employee names - improved version
+        // Find the manager column first
+        const managerColumns = board.columns?.filter(col => {
+          const columnTitle = col.title?.toLowerCase() || '';
+          return (col.type === 'dropdown' || col.type === 'status') &&
+                 (columnTitle.includes('manager') || columnTitle.includes('მენეჯერი') ||
+                  columnTitle.includes('supervisor') || columnTitle.includes('boss'));
+        });
+        
+        const managerColumn = managerColumns?.[0];
+        
+        if (managerColumn) {
+          console.log(`👔 Using Manager column: ${managerColumn.title} (ID: ${managerColumn.id})`);
+          
+          // Get current dropdown options
+          const currentLabels = JSON.parse(managerColumn.settings_str || '{}').labels || {};
+          const currentOptions = Object.values(currentLabels).filter(label => label && typeof label === 'string');
+          
+          // Get all employee names (from Monday.com data and local employees)
+          const allEmployeeNames = allCurrentEmployeeNames;
+          
+          // Find missing employee names
+          const missingNames = allEmployeeNames.filter(name => !currentOptions.includes(name));
+          
+          if (missingNames.length > 0) {
+            console.log('🔄 Auto-syncing manager dropdown - adding missing employee names:', missingNames);
+            
+            // Add missing names to dropdown
+            const updatedLabels = { ...currentLabels };
+            let nextId = Math.max(...Object.keys(updatedLabels).map(k => parseInt(k) || 0), 0) + 1;
+            missingNames.forEach(name => {
+              updatedLabels[nextId.toString()] = name;
+              nextId++;
+            });
+            
+            // Update local state only (change_column_settings doesn't exist in Monday.com API)
+            // Labels will be created automatically when updating items with create_labels_if_missing: true
             try {
-              const settings = JSON.parse(col.settings_str || '{}');
-              return settings.labels && Object.keys(settings.labels).length > 0;
-            } catch {
-              return false;
-            }
-          }) || managerColumns?.[0]; // Fallback to first column if none have valid settings
-
-          console.log(`👔 Using Manager column: ${managerColumn?.title} (ID: ${managerColumn?.id})`);
-
-          if (managerColumn) {
-            // Check what employee names are missing
-            const missingNames = allCurrentEmployeeNames.filter(name => !managerOptions.includes(name));
-
-            if (missingNames.length > 0) {
-              console.log('🔄 Auto-syncing manager dropdown - adding missing employee names:', missingNames);
-              console.log('📋 Manager raw labels (current):', JSON.parse(managerColumn.settings_str || '{}').labels);
-              console.log('👥 Employee names to add:', missingNames);
-
-              // Create updated labels object
-              const updatedLabels = { ...JSON.parse(managerColumn.settings_str || '{}').labels };
-
-              // Add missing names as new labels
-              let nextId = Math.max(...Object.keys(updatedLabels).map(k => parseInt(k)), 0) + 1;
-              missingNames.forEach(name => {
-                updatedLabels[nextId.toString()] = name;
-                nextId++;
-              });
-
-              // Update the column settings
-              try {
-                const updateQuery = `
-                  mutation {
-                    change_column_settings(
-                      board_id: ${boardId},
-                      column_id: "${managerColumn.id}",
-                      settings: "${JSON.stringify({ labels: updatedLabels }).replace(/"/g, '\\"')}"
-                    ) {
-                      id
-                    }
-                  }
-                `;
-
-                console.log('📤 Updating manager dropdown settings...');
-                const updateResponse = await monday.api(updateQuery);
-
-                if (updateResponse?.data?.change_column_settings?.id) {
-                  console.log('✅ Manager dropdown auto-updated with new employee names');
-                  console.log('📋 Manager raw labels (updated):', updatedLabels);
-
-                  // Update local state with new options
-                  const updatedOptions = Object.values(updatedLabels);
-                  setManagerDropdownOptions(updatedOptions);
-                  console.log('📋 Updated local manager dropdown options:', updatedOptions);
-                } else {
-                  console.log('❌ Failed to update manager dropdown settings');
-                }
-              } catch (error) {
-                console.log('❌ Error updating manager dropdown:', error);
-              }
-            } else {
-              console.log('✅ Manager dropdown is already in sync with employee names');
-              setManagerDropdownOptions(managerOptions);
+              console.log('✅ Manager dropdown auto-updated with new employee names (local state only)');
+              
+              // Update local state with new options
+              const updatedOptions = Object.values(updatedLabels);
+              setManagerDropdownOptions(updatedOptions);
+              console.log('📋 Updated local manager dropdown options:', updatedOptions);
+            } catch (error) {
+              console.log('❌ Error updating manager dropdown:', error);
+              setManagerDropdownOptions(currentOptions);
             }
           } else {
-            console.log('⚠️ Manager column found but details not available for auto-sync');
-            setManagerDropdownOptions(managerOptions);
+            console.log('✅ Manager dropdown is already in sync with employee names');
+            setManagerDropdownOptions(currentOptions);
           }
         } else {
-          console.log('⚠️ No manager dropdown column found - skipping auto-sync (no column creation)');
-          console.log('💡 To enable manager dropdown sync:');
-          console.log('   1. Go to your Monday.com board');
-          console.log('   2. Add a "Manager" column (dropdown type)');
-          console.log('   3. Add employee names to the dropdown options');
-          console.log('   4. Refresh this page');
-
-          // Don't set manager dropdown options since there's no column to sync with
+          console.log('⚠️ No manager dropdown column found - skipping auto-sync');
           setManagerDropdownOptions([]);
         }
 
@@ -1398,6 +1328,134 @@ function App() {
 
           
           setColumnMappings(detectedMappings);
+          
+          // Auto-create custom fields for unmapped columns from Monday.com
+          if (items.length > 0 && sampleItem && sampleItem.column_values) {
+            const standardFields = ['name', 'position', 'department', 'email', 'phone', 'manager', 'image', 'location', 'startDate', 'salary', 'address', 'notes'];
+            
+            // Get existing custom fields
+            const existingCustomFields = JSON.parse(localStorage.getItem('customFields') || '[]');
+            const existingFieldNames = existingCustomFields.map(field => field.name.toLowerCase());
+            
+            // Map Monday column types to custom field types
+            const mapMondayTypeToFieldType = (mondayType) => {
+              const typeMap = {
+                'text': 'text',
+                'long_text': 'text',
+                'email': 'email',
+                'phone': 'phone',
+                'numbers': 'number',
+                'date': 'date',
+                'dropdown': 'dropdown',
+                'status': 'dropdown'
+              };
+              return typeMap[mondayType] || 'text';
+            };
+            
+            // Find unmapped columns
+            const unmappedColumns = sampleItem.column_values.filter(col => {
+              // Skip if already mapped to a standard field
+              const isMapped = Object.values(detectedMappings).includes(col.id);
+              if (isMapped) return false;
+              
+              // Skip file columns (unless they're for images which are already mapped)
+              if (col.type === 'file' || col.type === 'files') return false;
+              
+              // Skip people columns (unless they're for managers which are already mapped)
+              if (col.type === 'people') return false;
+              
+              // Get column title
+              const columnTitle = (col.column?.title || col.text || '').trim();
+              if (!columnTitle) return false;
+              
+              // Skip if this field name already exists in custom fields
+              if (existingFieldNames.includes(columnTitle.toLowerCase())) return false;
+              
+              return true;
+            });
+            
+            // Create custom fields for unmapped columns
+            const newCustomFields = [];
+            unmappedColumns.forEach(col => {
+              const columnTitle = (col.column?.title || col.text || '').trim();
+              if (!columnTitle) return;
+              
+              // Skip if it's a standard field name
+              const isStandardField = standardFields.some(field => 
+                columnTitle.toLowerCase().includes(field.toLowerCase())
+              );
+              if (isStandardField) return;
+              
+              const fieldType = mapMondayTypeToFieldType(col.type);
+              
+              // Create custom field
+              const newField = {
+                id: Date.now() + Math.random(), // Unique ID
+                name: columnTitle,
+                type: fieldType,
+                required: false,
+                options: [] // For dropdown fields
+              };
+              
+              newCustomFields.push(newField);
+              
+              // Add to column mappings
+              detectedMappings[columnTitle] = col.id;
+              
+              console.log(`✨ Auto-created custom field: "${columnTitle}" (type: ${fieldType}, column ID: ${col.id})`);
+            });
+            
+            // Save new custom fields to localStorage
+            if (newCustomFields.length > 0) {
+              const updatedCustomFields = [...existingCustomFields, ...newCustomFields];
+              localStorage.setItem('customFields', JSON.stringify(updatedCustomFields));
+              
+              // Update column mappings
+              localStorage.setItem('columnMappings', JSON.stringify(detectedMappings));
+              setColumnMappings(detectedMappings);
+              
+              // Auto-update defaultFields and requiredFields to include new fields
+              const savedDefaultFields = localStorage.getItem('defaultFields');
+              const currentDefaultFields = savedDefaultFields ? JSON.parse(savedDefaultFields) : {
+                name: true,
+                position: true,
+                department: true,
+                email: true,
+                phone: true,
+                managerId: true
+              };
+              const savedRequiredFields = localStorage.getItem('requiredFields');
+              const currentRequiredFields = savedRequiredFields ? JSON.parse(savedRequiredFields) : {
+                name: true,
+                position: true,
+                department: true,
+                email: true,
+                phone: true,
+                managerId: false
+              };
+              
+              let updatedDefaultFields = { ...currentDefaultFields };
+              let updatedRequiredFields = { ...currentRequiredFields };
+              let hasChanges = false;
+              
+              newCustomFields.forEach(field => {
+                if (!(field.name in updatedDefaultFields)) {
+                  updatedDefaultFields[field.name] = true; // Default to enabled
+                  updatedRequiredFields[field.name] = field.required || false;
+                  hasChanges = true;
+                  console.log(`✅ Auto-added new field "${field.name}" to defaultFields`);
+                }
+              });
+              
+              if (hasChanges) {
+                localStorage.setItem('defaultFields', JSON.stringify(updatedDefaultFields));
+                localStorage.setItem('requiredFields', JSON.stringify(updatedRequiredFields));
+                console.log('✅ Auto-updated defaultFields and requiredFields with new custom fields');
+              }
+              
+              console.log(`✅ Auto-created ${newCustomFields.length} custom field(s) from Monday.com columns`);
+            }
+          }
         }
 
         // Check if column_values exist in API response
@@ -2918,6 +2976,82 @@ function App() {
           setMondayDataLoaded(true); // Trigger automatic organization after Monday.com data is loaded
           localStorage.setItem('employees', JSON.stringify(validatedEmployees));
 
+          // Auto-sync Manager dropdown with all employee names from loaded data
+          if (validatedEmployees.length > 0 && !isStandaloneMode && boardId) {
+            try {
+              // Get all employee names from loaded data
+              const allEmployeeNames = validatedEmployees.map(emp => emp.name).filter(name => name && name.trim());
+              
+              // Find manager column
+              const managerColumnQuery = `
+                query {
+                  boards(ids: [${boardId}]) {
+                    columns {
+                      id
+                      title
+                      type
+                      settings_str
+                    }
+                  }
+                }
+              `;
+              
+              const managerColumnResponse = await monday.api(managerColumnQuery);
+              if (managerColumnResponse?.data?.boards?.[0]) {
+                const currentBoard = managerColumnResponse.data.boards[0];
+                
+                // Find manager column
+                const managerColumns = currentBoard.columns?.filter(col => {
+                  const columnTitle = col.title?.toLowerCase() || '';
+                  return (col.type === 'dropdown' || col.type === 'status') &&
+                         (columnTitle.includes('manager') || columnTitle.includes('მენეჯერი') ||
+                          columnTitle.includes('supervisor') || columnTitle.includes('boss'));
+                });
+                
+                const managerColumn = managerColumns?.[0];
+                
+                if (managerColumn) {
+                  // Get current dropdown options
+                  const currentLabels = JSON.parse(managerColumn.settings_str || '{}').labels || {};
+                  const currentOptions = Object.values(currentLabels).filter(label => label && typeof label === 'string');
+                  
+                  // Find missing employee names
+                  const missingNames = allEmployeeNames.filter(name => !currentOptions.includes(name));
+                  
+                  if (missingNames.length > 0) {
+                    console.log('🔄 Auto-syncing Manager dropdown with all employee names from loaded data...');
+                    console.log(`📋 Adding ${missingNames.length} employee name(s) to Manager dropdown:`, missingNames);
+                    
+                    // Add missing names to dropdown
+                    const updatedLabels = { ...currentLabels };
+                    let nextId = Math.max(...Object.keys(updatedLabels).map(k => parseInt(k) || 0), 0) + 1;
+                    missingNames.forEach(name => {
+                      updatedLabels[nextId.toString()] = name;
+                      nextId++;
+                    });
+                    
+                    // Update local state only (change_column_settings doesn't exist in Monday.com API)
+                    // Labels will be created automatically when updating items with create_labels_if_missing: true
+                    console.log('✅ Manager dropdown auto-synced with all employee names (local state only)');
+                    
+                    // Update local state
+                    const updatedOptions = Object.values(updatedLabels);
+                    setManagerDropdownOptions(updatedOptions);
+                    console.log(`📋 Manager dropdown now has ${updatedOptions.length} option(s)`);
+                  } else {
+                    console.log('✅ Manager dropdown already contains all employee names');
+                    // Update local state with current options
+                    setManagerDropdownOptions(currentOptions);
+                  }
+                } else {
+                  console.log('⚠️ Manager dropdown column not found - cannot auto-sync');
+                }
+              }
+            } catch (syncError) {
+              console.log('❌ Error auto-syncing Manager dropdown:', syncError);
+            }
+          }
+
           // Re-enable organize button when Monday.com data is loaded
           reEnableOrganize();
         }
@@ -3178,7 +3312,7 @@ function App() {
         // If it's a dropdown column with options, validate against dropdown
         if (departmentDropdownOptions.length > 0) {
           if (departmentDropdownOptions.includes(employeeData.department)) {
-            columnValues[columnMappings.department] = employeeData.department;
+            columnValues[columnMappings.department] = { labels: [employeeData.department] };
             console.log(`✅ Department "${employeeData.department}" found in dropdown options`);
           } else {
             console.log(`⚠️ Department "${employeeData.department}" not found in dropdown options`);
@@ -3187,7 +3321,7 @@ function App() {
 
             // Still try to set it - if the dropdown auto-sync worked, it should be available
             // If not, the error will be caught and handled gracefully
-            columnValues[columnMappings.department] = employeeData.department;
+            columnValues[columnMappings.department] = { labels: [employeeData.department] };
           }
         } else {
           // Not a dropdown column, just set the value directly (text column, etc.)
@@ -3238,7 +3372,7 @@ function App() {
             // If it's a dropdown column with options, validate against dropdown
             if (managerDropdownOptions.length > 0) {
               if (managerDropdownOptions.includes(manager.name)) {
-                columnValues[columnMappings.manager] = manager.name;
+                columnValues[columnMappings.manager] = { labels: [manager.name] };
                 console.log(`✅ Manager "${manager.name}" found in dropdown options`);
               } else {
                 console.log(`⚠️ Manager "${manager.name}" not found in dropdown options`);
@@ -3247,7 +3381,7 @@ function App() {
 
                 // Still try to set it - if the dropdown auto-sync worked, it should be available
                 // If not, the error will be caught and handled gracefully
-                columnValues[columnMappings.manager] = manager.name;
+                columnValues[columnMappings.manager] = { labels: [manager.name] };
               }
             } else {
               // Not a dropdown column, just set the value directly (text column, etc.)
@@ -3308,7 +3442,7 @@ function App() {
           Object.entries(columnValues).forEach(([columnId, value]) => {
             // Check if value is already formatted as object (for email or phone custom fields)
             if (typeof value === 'object' && value !== null) {
-              // Value is already formatted (email: {email, text} or phone: {phone, countryShortName})
+              // Value is already formatted (email: {email, text} or phone: {phone, countryShortName} or dropdown: {labels: [...]})
               bulkUpdateData[columnId] = value;
             } else if (columnId.includes('email')) {
               // Email columns require JSON format: {"email": "email", "text": "email"}
@@ -3328,6 +3462,12 @@ function App() {
             } else if (columnId.includes('file')) {
               // Skip file columns - they are handled separately via add_file_to_column mutation
 
+            } else if (columnId === columnMappings.manager && managerDropdownOptions.length > 0 && typeof value === 'string') {
+              // Manager dropdown column - convert string to JSON format
+              bulkUpdateData[columnId] = { labels: [value] };
+            } else if (columnId === columnMappings.department && departmentDropdownOptions.length > 0 && typeof value === 'string') {
+              // Department dropdown column - convert string to JSON format
+              bulkUpdateData[columnId] = { labels: [value] };
             } else {
               // Text, dropdown, and other columns use plain strings
               bulkUpdateData[columnId] = value;
@@ -3341,7 +3481,8 @@ function App() {
               change_multiple_column_values (
                 item_id: ${itemId},
                 board_id: ${boardIdToUse},
-                column_values: "${JSON.stringify(bulkUpdateData).replace(/"/g, '\\"')}"
+                column_values: "${JSON.stringify(bulkUpdateData).replace(/"/g, '\\"')}",
+                create_labels_if_missing: true
               ) {
                 id
               }
@@ -3386,7 +3527,8 @@ function App() {
                       change_multiple_column_values (
                         item_id: ${itemId},
                         board_id: ${boardIdToUse},
-                        column_values: "${JSON.stringify(cleanedBulkData).replace(/"/g, '\\"')}"
+                        column_values: "${JSON.stringify(cleanedBulkData).replace(/"/g, '\\"')}",
+                        create_labels_if_missing: true
                       ) {
                         id
                       }
@@ -3840,7 +3982,10 @@ function App() {
             // Validate manager name against dropdown options if they exist
             if (managerDropdownOptions.length > 0) {
               if (managerDropdownOptions.includes(newManager?.name)) {
-                changedFields[currentColumnMappings.manager] = newManager?.name || '';
+                // For dropdown columns, use JSON format with labels array
+                changedFields[currentColumnMappings.manager] = JSON.stringify({
+                  labels: [newManager?.name]
+                });
                 console.log(`✅ Manager "${newManager?.name}" found in dropdown options`);
               } else {
                 console.log(`⚠️ Manager "${newManager?.name}" not found in dropdown options`);
@@ -3848,6 +3993,7 @@ function App() {
                 console.log(`🔄 Attempting to sync manager dropdown before updating...`);
 
                 // Try to sync the manager dropdown first
+                let dropdownSynced = false;
                 try {
                   // Load board data to get current columns
                   const boardQuery = `
@@ -3870,13 +4016,14 @@ function App() {
 
                     // Extract current manager options
                     const currentManagerOptions = [];
+                    let managerColumn = null;
                     if (currentBoard.columns) {
                       currentBoard.columns.forEach(column => {
                         const columnTitle = column.title?.toLowerCase() || '';
                         if ((column.type === 'dropdown' || column.type === 'status') &&
                             (columnTitle.includes('manager') || columnTitle.includes('მენეჯერი') ||
                              columnTitle.includes('supervisor') || columnTitle.includes('boss'))) {
-
+                          managerColumn = column;
                           try {
                             const settings = JSON.parse(column.settings_str || '{}');
                             if (settings.labels) {
@@ -3894,55 +4041,38 @@ function App() {
                     }
 
                     // Check if the missing name is still missing and try to sync
-                    if (currentManagerOptions.length > 0 && !currentManagerOptions.includes(newManager?.name)) {
+                    if (managerColumn && currentManagerOptions.length > 0 && !currentManagerOptions.includes(newManager?.name)) {
                       console.log('🔄 Syncing manager dropdown with missing name...');
 
-                      // Find manager column
-                      const managerColumns = currentBoard.columns?.filter(col => {
-                        const columnTitle = col.title?.toLowerCase() || '';
-                        return (col.type === 'dropdown' || col.type === 'status') &&
-                               (columnTitle.includes('manager') || columnTitle.includes('მენეჯერი') ||
-                                columnTitle.includes('supervisor') || columnTitle.includes('boss'));
-                      });
+                      // Add the missing name
+                      const updatedLabels = { ...JSON.parse(managerColumn.settings_str || '{}').labels };
+                      const nextId = Math.max(...Object.keys(updatedLabels).map(k => parseInt(k)), 0) + 1;
+                      updatedLabels[nextId.toString()] = newManager?.name;
 
-                      const managerColumn = managerColumns?.[0];
+                      // Update local state only (change_column_settings doesn't exist in Monday.com API)
+                      // Labels will be created automatically when updating items with create_labels_if_missing: true
+                      console.log('✅ Manager dropdown synced successfully (local state only)');
 
-                      if (managerColumn) {
-                        // Add the missing name
-                        const updatedLabels = { ...JSON.parse(managerColumn.settings_str || '{}').labels };
-                        const nextId = Math.max(...Object.keys(updatedLabels).map(k => parseInt(k)), 0) + 1;
-                        updatedLabels[nextId.toString()] = newManager?.name;
-
-                        // Update column settings
-                        const syncQuery = `
-                          mutation {
-                            change_column_settings(
-                              board_id: ${boardId},
-                              column_id: "${managerColumn.id}",
-                              settings: "${JSON.stringify({ labels: updatedLabels }).replace(/"/g, '\\"')}"
-                            ) {
-                              id
-                            }
-                          }
-                        `;
-
-                        const syncResponse = await monday.api(syncQuery);
-                        if (syncResponse?.data?.change_column_settings?.id) {
-                          console.log('✅ Manager dropdown synced successfully');
-
-                          // Update local state
-                          const updatedOptions = Object.values(updatedLabels);
-                          setManagerDropdownOptions(updatedOptions);
-                        }
-                      }
+                      // Update local state
+                      const updatedOptions = Object.values(updatedLabels);
+                      setManagerDropdownOptions(updatedOptions);
+                      dropdownSynced = true;
                     }
                   }
                 } catch (syncError) {
                   console.log('❌ Failed to sync manager dropdown:', syncError);
                 }
 
-                // Still try to set it - the sync might have worked, or the error will be handled gracefully
-                changedFields[currentColumnMappings.manager] = newManager?.name || '';
+                // Only set it if dropdown was synced successfully
+                if (dropdownSynced) {
+                  // For dropdown columns, use JSON format with labels array
+                  changedFields[currentColumnMappings.manager] = JSON.stringify({
+                    labels: [newManager?.name]
+                  });
+                  console.log(`✅ Manager "${newManager?.name}" added to dropdown and will be set`);
+                } else {
+                  console.log(`⚠️ Skipping manager update for "${newManager?.name}" - dropdown sync failed or name not in options`);
+                }
               }
             } else {
               // Not a dropdown column, just set the value directly (text column, etc.)
@@ -4138,6 +4268,15 @@ function App() {
             if (typeof value === 'object' && value !== null) {
               // Value is already formatted (email: {email, text} or phone: {phone, countryShortName})
               bulkUpdateData[columnId] = value;
+            } else if (typeof value === 'string' && value.startsWith('{') && value.includes('labels')) {
+              // Value is already a JSON string for dropdown (e.g., '{"labels": ["ManagerName"]}')
+              try {
+                bulkUpdateData[columnId] = JSON.parse(value);
+              } catch (e) {
+                // If parsing fails, use as-is
+                console.log(`⚠️ Failed to parse dropdown value for ${columnId}:`, e);
+                bulkUpdateData[columnId] = value;
+              }
             } else if (columnId.includes('email')) {
               // Email columns require JSON format: {"email": "email", "text": "email"}
               // The text field should contain the email address, not the name
@@ -4154,6 +4293,16 @@ function App() {
               } else {
                 bulkUpdateData[columnId] = value;
               }
+            } else if (columnId === currentColumnMappings.manager && managerDropdownOptions.length > 0) {
+              // Manager dropdown column - use JSON format
+              bulkUpdateData[columnId] = {
+                labels: [value]
+              };
+            } else if (columnId === currentColumnMappings.department && departmentDropdownOptions.length > 0) {
+              // Department dropdown column - use JSON format
+              bulkUpdateData[columnId] = {
+                labels: [value]
+              };
             } else {
               // Text, dropdown, and other columns use plain strings
               bulkUpdateData[columnId] = value;
@@ -4167,7 +4316,8 @@ function App() {
               change_multiple_column_values (
                 item_id: ${selectedEmployee.id},
                 board_id: ${boardId},
-                column_values: "${JSON.stringify(bulkUpdateData).replace(/"/g, '\\"')}"
+                column_values: "${JSON.stringify(bulkUpdateData).replace(/"/g, '\\"')}",
+                create_labels_if_missing: true
               ) {
                 id
               }

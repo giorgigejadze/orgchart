@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, Palette, List, Save, Edit, ChevronUp, ChevronDown } from 'lucide-react';
 import './Settings.css';
 import mondaySdk from "monday-sdk-js";
@@ -58,56 +58,126 @@ const Settings = ({ isOpen, onClose, activeSection, onTabChange, designSettings,
   const [inlineOptionValue, setInlineOptionValue] = useState('');
   const [isAddingForNewField, setIsAddingForNewField] = useState(true);
   const [selectedFieldIndex, setSelectedFieldIndex] = useState(null);
+  
+  // Ref to track current customFields for polling
+  const customFieldsRef = useRef([]);
 
   // Load existing settings from localStorage on component mount
   React.useEffect(() => {
-    const savedCustomFields = localStorage.getItem('customFields');
-    const savedDesignSettings = localStorage.getItem('designSettings');
-    const savedDefaultFields = localStorage.getItem('defaultFields');
-    const savedRequiredFields = localStorage.getItem('requiredFields');
-    
-    if (savedCustomFields) {
-      setCustomFields(JSON.parse(savedCustomFields));
-    }
-    
-    if (savedDesignSettings) {
-      const parsedSettings = JSON.parse(savedDesignSettings);
-      // Merge with default settings to ensure new properties are included
-      const defaultDesignSettings = {
-        cardStyle: 'rounded',
-        avatarSize: 'medium',
-        showContactInfo: true,
-        showDepartment: true,
-        primaryColor: '#2563eb',
-        secondaryColor: '#64748b',
-        edgeType: 'straight',
-        edgeColor: '#3b82f6',
-        edgeWidth: 3
-      };
-      // Update parent's state with merged settings
-      if (onDesignSettingsChange) {
-        onDesignSettingsChange({ ...defaultDesignSettings, ...parsedSettings });
+    const loadSettings = () => {
+      const savedCustomFields = localStorage.getItem('customFields');
+      const savedDesignSettings = localStorage.getItem('designSettings');
+      const savedDefaultFields = localStorage.getItem('defaultFields');
+      const savedRequiredFields = localStorage.getItem('requiredFields');
+      
+      if (savedCustomFields) {
+        const parsedFields = JSON.parse(savedCustomFields);
+        setCustomFields(parsedFields);
       }
-    }
+      
+      if (savedDesignSettings) {
+        const parsedSettings = JSON.parse(savedDesignSettings);
+        // Merge with default settings to ensure new properties are included
+        const defaultDesignSettings = {
+          cardStyle: 'rounded',
+          avatarSize: 'medium',
+          showContactInfo: true,
+          showDepartment: true,
+          primaryColor: '#2563eb',
+          secondaryColor: '#64748b',
+          edgeType: 'straight',
+          edgeColor: '#3b82f6',
+          edgeWidth: 3
+        };
+        // Update parent's state with merged settings
+        if (onDesignSettingsChange) {
+          onDesignSettingsChange({ ...defaultDesignSettings, ...parsedSettings });
+        }
+      }
 
-    if (savedDefaultFields) {
-      setDefaultFields(JSON.parse(savedDefaultFields));
-    }
+      if (savedDefaultFields) {
+        setDefaultFields(JSON.parse(savedDefaultFields));
+      }
 
-    if (savedRequiredFields) {
-      setRequiredFields(JSON.parse(savedRequiredFields));
-    } else {
-      // Default required fields if no settings exist
-      setRequiredFields({
-        name: true,
-        position: true,
-        department: true,
-        email: true,
-        phone: true,
-        managerId: false
-      });
-    }
-  }, []);
+      if (savedRequiredFields) {
+        setRequiredFields(JSON.parse(savedRequiredFields));
+      } else {
+        // Default required fields if no settings exist
+        setRequiredFields({
+          name: true,
+          position: true,
+          department: true,
+          email: true,
+          phone: true,
+          managerId: false
+        });
+      }
+    };
+
+    // Load settings on mount
+    loadSettings();
+
+    // Listen for storage events (when localStorage changes from other tabs/windows)
+    const handleStorageChange = (e) => {
+      if (e.key === 'customFields' || e.key === 'defaultFields' || e.key === 'requiredFields') {
+        loadSettings();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Poll for localStorage changes (for same-tab changes)
+    const pollInterval = setInterval(() => {
+      const savedCustomFields = localStorage.getItem('customFields');
+      if (savedCustomFields) {
+        const parsedFields = JSON.parse(savedCustomFields);
+        // Check if fields have changed using ref
+        const currentFieldsStr = JSON.stringify(customFieldsRef.current);
+        const newFieldsStr = JSON.stringify(parsedFields);
+        if (currentFieldsStr !== newFieldsStr) {
+          console.log('🔄 Detected new custom fields in localStorage, auto-updating...');
+          customFieldsRef.current = parsedFields;
+          setCustomFields(parsedFields);
+          
+          // Auto-update defaultFields to include new fields
+          const savedDefaultFields = localStorage.getItem('defaultFields');
+          const currentDefaultFields = savedDefaultFields ? JSON.parse(savedDefaultFields) : {};
+          const savedRequiredFields = localStorage.getItem('requiredFields');
+          const currentRequiredFields = savedRequiredFields ? JSON.parse(savedRequiredFields) : {};
+          
+          let updatedDefaultFields = { ...currentDefaultFields };
+          let updatedRequiredFields = { ...currentRequiredFields };
+          let hasChanges = false;
+          
+          parsedFields.forEach(field => {
+            if (!(field.name in updatedDefaultFields)) {
+              updatedDefaultFields[field.name] = true; // Default to enabled
+              updatedRequiredFields[field.name] = field.required || false;
+              hasChanges = true;
+              console.log(`✅ Auto-added new field "${field.name}" to defaultFields`);
+            }
+          });
+          
+          if (hasChanges) {
+            localStorage.setItem('defaultFields', JSON.stringify(updatedDefaultFields));
+            localStorage.setItem('requiredFields', JSON.stringify(updatedRequiredFields));
+            setDefaultFields(updatedDefaultFields);
+            setRequiredFields(updatedRequiredFields);
+            console.log('✅ Auto-updated defaultFields and requiredFields with new custom fields');
+          }
+        }
+      }
+    }, 500); // Check every 500ms
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pollInterval);
+    };
+  }, [onDesignSettingsChange]);
+  
+  // Update ref when customFields changes
+  useEffect(() => {
+    customFieldsRef.current = customFields;
+  }, [customFields]);
 
   // Update default fields when custom fields change
   React.useEffect(() => {

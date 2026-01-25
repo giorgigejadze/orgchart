@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, User, Mail, Phone, Building, UserCheck } from 'lucide-react';
 import './EmployeeForm.css';
 
@@ -19,57 +19,149 @@ const EmployeeForm = ({ employee, employees, onSubmit, onCancel, dataSource = 'l
   const [errors, setErrors] = useState({});
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  
+  // Refs to track current state values for polling
+  const customFieldsRef = useRef([]);
+  const defaultFieldsRef = useRef({});
+  const requiredFieldsRef = useRef({});
+  const formDataRef = useRef({});
+  const employeeRef = useRef(null);
 
   // Load custom fields and default fields from localStorage
   useEffect(() => {
-    const savedCustomFields = localStorage.getItem('customFields');
-    const savedDefaultFields = localStorage.getItem('defaultFields');
-    const savedRequiredFields = localStorage.getItem('requiredFields');
-    
-    if (savedCustomFields) {
-      const fields = JSON.parse(savedCustomFields);
-      setCustomFields(fields);
+    const loadSettings = () => {
+      const savedCustomFields = localStorage.getItem('customFields');
+      const savedDefaultFields = localStorage.getItem('defaultFields');
+      const savedRequiredFields = localStorage.getItem('requiredFields');
       
-      // Initialize custom field values in formData
-      const customFieldData = {};
-      fields.forEach(field => {
-        customFieldData[field.name] = '';
-      });
+      if (savedCustomFields) {
+        const fields = JSON.parse(savedCustomFields);
+        setCustomFields(fields);
+        
+        // Initialize custom field values in formData
+        const customFieldData = {};
+        fields.forEach(field => {
+          customFieldData[field.name] = '';
+        });
+        
+        setFormData(prev => ({
+          ...prev,
+          ...customFieldData
+        }));
+      }
+
+      if (savedDefaultFields) {
+        setDefaultFields(JSON.parse(savedDefaultFields));
+      } else {
+        // Default to all fields enabled if no settings exist
+        setDefaultFields({
+          name: true,
+          position: true,
+          department: true,
+          email: true,
+          phone: true,
+          managerId: true
+        });
+      }
+
+      if (savedRequiredFields) {
+        setRequiredFields(JSON.parse(savedRequiredFields));
+      } else {
+        // Default required fields if no settings exist
+        setRequiredFields({
+          name: true,
+          position: true,
+          department: true,
+          email: true,
+          phone: true,
+          managerId: false
+        });
+      }
+    };
+
+    // Load settings on mount
+    loadSettings();
+
+    // Poll for localStorage changes (for same-tab changes)
+    const pollInterval = setInterval(() => {
+      const savedCustomFields = localStorage.getItem('customFields');
+      if (savedCustomFields) {
+        const parsedFields = JSON.parse(savedCustomFields);
+        // Check if fields have changed using refs
+        const currentFieldsStr = JSON.stringify(customFieldsRef.current);
+        const newFieldsStr = JSON.stringify(parsedFields);
+        if (currentFieldsStr !== newFieldsStr) {
+          console.log('🔄 EmployeeForm: Detected new custom fields, auto-updating...');
+          customFieldsRef.current = parsedFields;
+          setCustomFields(parsedFields);
+          
+          // Initialize new custom field values in formData
+          const newCustomFieldData = {};
+          parsedFields.forEach(field => {
+            if (!(field.name in formDataRef.current)) {
+              newCustomFieldData[field.name] = employeeRef.current?.[field.name] || '';
+            }
+          });
+          
+          if (Object.keys(newCustomFieldData).length > 0) {
+            setFormData(prev => {
+              const updated = { ...prev, ...newCustomFieldData };
+              formDataRef.current = updated;
+              return updated;
+            });
+          }
+        }
+      }
       
-      setFormData(prev => ({
-        ...prev,
-        ...customFieldData
-      }));
-    }
+      // Also check for defaultFields and requiredFields changes
+      const savedDefaultFields = localStorage.getItem('defaultFields');
+      if (savedDefaultFields) {
+        const parsedDefaultFields = JSON.parse(savedDefaultFields);
+        const currentDefaultFieldsStr = JSON.stringify(defaultFieldsRef.current);
+        const newDefaultFieldsStr = JSON.stringify(parsedDefaultFields);
+        if (currentDefaultFieldsStr !== newDefaultFieldsStr) {
+          defaultFieldsRef.current = parsedDefaultFields;
+          setDefaultFields(parsedDefaultFields);
+        }
+      }
+      
+      const savedRequiredFields = localStorage.getItem('requiredFields');
+      if (savedRequiredFields) {
+        const parsedRequiredFields = JSON.parse(savedRequiredFields);
+        const currentRequiredFieldsStr = JSON.stringify(requiredFieldsRef.current);
+        const newRequiredFieldsStr = JSON.stringify(parsedRequiredFields);
+        if (currentRequiredFieldsStr !== newRequiredFieldsStr) {
+          requiredFieldsRef.current = parsedRequiredFields;
+          setRequiredFields(parsedRequiredFields);
+        }
+      }
+    }, 500); // Check every 500ms
 
-    if (savedDefaultFields) {
-      setDefaultFields(JSON.parse(savedDefaultFields));
-    } else {
-      // Default to all fields enabled if no settings exist
-      setDefaultFields({
-        name: true,
-        position: true,
-        department: true,
-        email: true,
-        phone: true,
-        managerId: true
-      });
-    }
-
-    if (savedRequiredFields) {
-      setRequiredFields(JSON.parse(savedRequiredFields));
-    } else {
-      // Default required fields if no settings exist
-      setRequiredFields({
-        name: true,
-        position: true,
-        department: true,
-        email: true,
-        phone: true,
-        managerId: false
-      });
-    }
-  }, []);
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, []); // Empty deps - only run on mount/unmount
+  
+  // Update refs when state changes
+  useEffect(() => {
+    customFieldsRef.current = customFields;
+  }, [customFields]);
+  
+  useEffect(() => {
+    defaultFieldsRef.current = defaultFields;
+  }, [defaultFields]);
+  
+  useEffect(() => {
+    requiredFieldsRef.current = requiredFields;
+  }, [requiredFields]);
+  
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+  
+  useEffect(() => {
+    employeeRef.current = employee;
+  }, [employee]);
 
   // Generate random employee data
   const generateRandomEmployee = () => {
