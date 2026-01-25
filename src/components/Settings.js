@@ -275,8 +275,49 @@ const Settings = ({ isOpen, onClose, activeSection, onTabChange, designSettings,
     setShowDeleteConfirm(true);
   };
 
-  const removeCustomField = () => {
+  const removeCustomField = async () => {
     if (fieldToDelete) {
+      // Delete column from Monday.com if connected
+      if (!isStandaloneMode && boardId) {
+        try {
+          // Get column ID from localStorage mappings
+          const savedColumnMappings = JSON.parse(localStorage.getItem('columnMappings') || '{}');
+          const columnId = savedColumnMappings[fieldToDelete.name];
+          
+          if (columnId) {
+            console.log('🗑️ Deleting column from Monday.com:', fieldToDelete.name, 'column ID:', columnId);
+            
+            const deleteColumnMutation = `
+              mutation {
+                delete_column(
+                  board_id: ${boardId},
+                  column_id: "${columnId}"
+                ) {
+                  id
+                  title
+                }
+              }
+            `;
+            
+            const response = await monday.api(deleteColumnMutation);
+            console.log('✅ Column deleted from Monday.com:', response);
+            
+            // Remove column mapping from localStorage
+            const updatedColumnMappings = { ...savedColumnMappings };
+            delete updatedColumnMappings[fieldToDelete.name];
+            localStorage.setItem('columnMappings', JSON.stringify(updatedColumnMappings));
+            console.log('💾 Removed column mapping from localStorage:', fieldToDelete.name);
+          } else {
+            console.log('⚠️ Column mapping not found for field:', fieldToDelete.name);
+          }
+        } catch (error) {
+          console.error('❌ Error deleting column from Monday.com:', error);
+          console.error('❌ Error details:', error.message);
+          // Continue with local field deletion even if Monday.com sync fails
+        }
+      }
+      
+      // Remove from local state
       setCustomFields(customFields.filter(field => field.id !== fieldToDelete.id));
       
       // Remove the field from required fields as well
@@ -285,6 +326,17 @@ const Settings = ({ isOpen, onClose, activeSection, onTabChange, designSettings,
         delete updated[fieldToDelete.name];
         return updated;
       });
+      
+      // Remove from default fields
+      const savedDefaultFields = JSON.parse(localStorage.getItem('defaultFields') || '{}');
+      const updatedDefaultFields = { ...savedDefaultFields };
+      delete updatedDefaultFields[fieldToDelete.name];
+      localStorage.setItem('defaultFields', JSON.stringify(updatedDefaultFields));
+      
+      // Remove from localStorage
+      const updatedCustomFields = customFields.filter(field => field.id !== fieldToDelete.id);
+      localStorage.setItem('customFields', JSON.stringify(updatedCustomFields));
+      localStorage.setItem('requiredFields', JSON.stringify({ ...requiredFields, [fieldToDelete.name]: undefined }));
       
       setFieldToDelete(null);
       setShowDeleteConfirm(false);

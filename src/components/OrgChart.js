@@ -388,6 +388,10 @@ const OrgChart = ({
   onViewEmployee,
   isStandaloneMode = false,
   mondayDataLoaded = false,
+  isOrganizeDisabled = false,
+  setIsOrganizeDisabled,
+  employeeJustEdited = false,
+  setEmployeeJustEdited,
   designSettings = {
     cardStyle: 'rounded',
     avatarSize: 'medium',
@@ -508,6 +512,34 @@ const OrgChart = ({
       // Check if any node data has changed
       let hasDataChanges = false;
 
+      // Migrate positions when IDs change (e.g., tempId -> real Monday.com ID)
+      // Find nodes that might have changed IDs by matching employee data
+      flowNodes.forEach(flowNode => {
+        const matchingNode = nodes.find(n => {
+          // Try to match by employee data if IDs don't match
+          if (String(n.id) !== flowNode.id) {
+            const flowEmployee = flowNode.data?.employee;
+            const nodeEmployee = n.data?.employee;
+            if (flowEmployee && nodeEmployee) {
+              // Match by name and other unique fields
+              return flowEmployee.name === nodeEmployee.name &&
+                     flowEmployee.email === nodeEmployee.email;
+            }
+          }
+          return false;
+        });
+        
+        if (matchingNode && String(matchingNode.id) !== flowNode.id) {
+          // Migrate position from old ID to new ID
+          const oldPosition = nodePositionsRef.current.get(flowNode.id);
+          if (oldPosition) {
+            console.log(`🔄 Migrating node position from ${flowNode.id} to ${matchingNode.id}`);
+            nodePositionsRef.current.set(String(matchingNode.id), oldPosition);
+            nodePositionsRef.current.delete(flowNode.id);
+          }
+        }
+      });
+
       // Process all employees
       nodes.forEach(originalNode => {
         const existingFlowNode = flowNodes.find(fn => fn.id === String(originalNode.id));
@@ -591,6 +623,22 @@ const OrgChart = ({
       return () => clearTimeout(timeoutId);
     }
   }, [mondayDataLoaded, employees.length, flowNodes.length, nodesInitializedRef.current]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Automatically organize after employee edit (like after adding new employee)
+  useEffect(() => {
+    if (employeeJustEdited && nodesInitializedRef.current && employees.length > 0 && flowNodes.length > 0) {
+      console.log('🔄 Employee edited - triggering automatic organization');
+      // Delay to ensure all data processing is complete
+      const timeoutId = setTimeout(() => {
+        handleOrganize();
+        // Reset the flag after organization
+        if (setEmployeeJustEdited) {
+          setEmployeeJustEdited(false);
+        }
+      }, 300); // Shorter delay than initial load
+      return () => clearTimeout(timeoutId);
+    }
+  }, [employeeJustEdited, employees.length, flowNodes.length, nodesInitializedRef.current, setEmployeeJustEdited]);
 
   // Edge styling is now handled by custom edge components
 
@@ -889,13 +937,17 @@ const OrgChart = ({
       <div className="org-chart-controls">
         <button
           className="control-btn fit-organize-btn"
+          disabled={isOrganizeDisabled}
           onClick={() => {
             handleOrganize();
+            if (setIsOrganizeDisabled) {
+              setIsOrganizeDisabled(true);
+            }
           }}
-          title="Fit View & Organize Chart"
+          title={isOrganizeDisabled ? "Chart is organized - make changes to re-enable" : "Fit View & Organize Chart"}
         >
           <Maximize size={16} />
-          <span>Fit & Organize</span>
+          <span>{isOrganizeDisabled ? "Organized" : "Fit & Organize"}</span>
         </button>
       </div>
 
